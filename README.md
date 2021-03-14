@@ -30,7 +30,7 @@ sudo pip install future pymavlink MAVProxy
 
 ### Install Gazebo plugin for APM (ArduPilot Master) :
 ```
-cd ~/shared-directory
+cd ~
 git clone https://github.com/khancyr/ardupilot_gazebo.git
 cd ardupilot_gazebo
 git checkout dev
