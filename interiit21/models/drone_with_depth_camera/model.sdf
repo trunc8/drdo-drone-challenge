@@ -65,8 +65,8 @@
       <depthImageInfoTopicName>/depth_cameracamera/depth/camera_info</depthImageInfoTopicName>
       <pointCloudTopicName>depth/points</pointCloudTopicName>
       <frameName>camera_link_optical</frameName>
-      <pointCloudCutoff>0.4</pointCloudCutoff>
-      <pointCloudCutoffMax>3.0</pointCloudCutoffMax>
+      <pointCloudCutoff>0.1</pointCloudCutoff>
+      <pointCloudCutoffMax>10.0</pointCloudCutoffMax>
       <distortionK1>0.0</distortionK1>
       <distortionK2>0.0</distortionK2>
       <distortionK3>0.0</distortionK3>
