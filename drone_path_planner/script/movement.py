@@ -49,3 +49,72 @@ if __name__=="__main__":
        move()
     except rospy.ROSInterruptException:
         pass
+#!/usr/bin/env python
+
+
+import rospy
+##from hector_uav_msgs.msg import PoseActionGoal
+##from geometry_msgs import PoseStamped
+
+from tf.transformations import euler_from_quaternion
+from geometry_msgs.msg import Point,Twist
+from geometry_msgs.msg import PoseStamped
+from math import atan2
+
+x = 0.0
+y = 0.0
+z = 0.0
+theta = 0.0
+
+def newOdom (msg) :
+    global x
+    global y
+    global z
+    global theta
+    
+    x = msg.pose.position.x   ##pose.position.x
+    y = msg.pose.position.y    ##pose.position.y
+    z = msg.pose.position.z
+    rot_q =msg.pose.orientation
+    (roll ,pitch ,theta)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
+
+rospy.init_node("speed_controller")
+sub = rospy.Subscriber("/ground_truth_to_tf/pose",PoseStamped ,newOdom)
+pub = rospy.Publisher("/cmd_vel/",Twist,queue_size=1)   
+  
+speed =Twist()
+r= rospy.Rate(1000) 
+goal = Point()
+goal.x =9
+goal.y =2
+goal.z =7
+
+while not rospy.is_shutdown():
+
+    inc_x=goal.x - x
+    inc_y=goal.y - y
+    inc_z=goal.z - z
+    print(x,y,z)
+    print(goal.x,goal.y,goal.z)
+    print(inc_x,inc_y,inc_z)
+    angle_to_goal = atan2(inc_y,inc_x)
+    if inc_z > 0.1 :
+
+        speed.linear.z = 0.5
+    else :
+ 
+       
+        if abs(angle_to_goal - theta )>0.1 :
+            
+            speed.linear.x = 0.0
+            speed.angular.z = 0.3
+            print(speed.linear.z)
+
+        else :
+            
+            speed.linear.x = 0.5
+            speed.angular.z = 0.0
+            print(speed.linear.z)
+
+    pub.publish(speed)       
+    r.sleep()      
