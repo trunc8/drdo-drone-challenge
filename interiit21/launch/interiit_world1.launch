@@ -1,15 +1,15 @@
 <launch>
   <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
-	<arg name="gui" default="true"/>
+	<arg name="gui" default="false"/>
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
-		<arg name="world_name" value="$(find interiit21)/worlds/interiit_world1.world"/>
+		<arg name="world_name" value="$(find interiit21)/worlds/interiit_world2.world"/>
 		<arg name="gui" value="$(arg gui)"/>
 	<!-- more default parameters can be changed here -->
 	</include>
 	<!-- vim: set ft=xml noet : -->
 	<!-- Experimental launch script for APM based Drone -->
 
-	<arg name="fcu_url" default="udp://:14555@127.0.0.1:14540" />
+	<arg name="fcu_url" default="udp://127.0.0.1:14551@:14555" />
 	<arg name="gcs_url" default="" />
 	<arg name="tgt_system" default="1" />
 	<arg name="tgt_component" default="1" />
