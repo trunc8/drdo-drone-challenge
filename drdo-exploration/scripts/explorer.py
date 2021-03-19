@@ -11,6 +11,8 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import numpy as np
 
+import scipy.ndimage
+
 class Exploration:
   def __init__(self):
 
@@ -56,23 +58,84 @@ class Exploration:
       return
     
     cv_image_array = np.array(cv_img, dtype = np.dtype('f8'))
-    i = 400
-    print(np.min(cv_image_array[i]))
-    print(np.max(cv_image_array[i]))
-    print(cv_image_array[i].shape)
+    
+    # blank = np.zeros(cv_image_array.shape, dtype=float)
+
+    i = 0 # Debugging variable
+    # print(np.min(cv_image_array[i]))
+    # print(np.max(cv_image_array[i]))
+    # print(cv_image_array[i].shape)
 
     cv_image_norm = cv_image_array/10
-    cv2.imshow("Depth raw image", cv_image_norm)
-    cv2.waitKey(3)
-    # cv_image_norm = cv2.normalize(cv_image_array, cv_image_array, 0, 1, cv2.NORM_MINMAX)
-    # # Resize to the desired size
-    # cv_image_resized = cv2.resize(cv_image_norm, (pc2_img_msg.width, pc2_img_msg.height), interpolation = cv2.INTER_CUBIC)
-    # depthimg = np.array(cv_image_resized)
-
-
+    bloated_cv_img = cv_image_norm.copy()
+    # cv2.imshow("Depth raw image", cv_image_norm)
+    # cv2.waitKey(3)
     
-    # print(cv_image_norm)
+    safety_threshold = 10 # in pixels (needs tuning)
+    # kernel = np.zeros(safety_threshold//2).append(np.ones(safety_threshold//2))
+    
 
+    '''
+    Calculate horizontal differences only finding decreasing brightnesses
+    ----------
+    Decreasing brightness => Brighter(farther) to darker(closer)
+    So danger obstacle is on the right of the edge line
+    '''
+    left_vertical_edge = cv_image_norm[:,0:-1] - cv_image_norm[:,1:]
+    left_vertical_edge = left_vertical_edge.clip(min=0)
+    left_vertical_mask = left_vertical_edge > 0.1
+    kernel = np.concatenate((np.ones(safety_threshold//2),
+                            np.zeros(safety_threshold//2)))
+    left_vertical_mask = scipy.ndimage.convolve1d(left_vertical_mask, weights=kernel, axis=1)
+
+    blank = np.zeros(left_vertical_edge.shape, dtype=float)
+    blank[left_vertical_mask] = 1
+
+    # left_vertical_edge = ((cv_image_norm[:,0:-1] - cv_image_norm[:,1:])>0.1).astype(float)
+
+    # print(np.min(left_vertical_edge[i]))
+    # print(np.max(left_vertical_edge[i]))
+    # print(left_vertical_edge[i].shape)
+    # print(left_vertical_mask.shape)
+
+    # cv2.imshow("Left Vertical Edge", left_vertical_edge)
+    # cv2.waitKey(3)
+
+
+    '''
+    Calculate horizontal differences only finding increasing brightnesses
+    ----------
+    Increasing brightness => Darker(closer) to brighter(farther)
+    So danger obstacle is on the left of the edge line
+    '''
+    right_vertical_edge = cv_image_norm[:,1:] - cv_image_norm[:,0:-1]
+    right_vertical_edge = ((cv_image_norm[:,1:] - cv_image_norm[:,0:-1])>0.1).astype(float)
+    right_vertical_mask = right_vertical_edge > 0.1
+    kernel = np.concatenate((np.zeros(safety_threshold//2),
+                            np.ones(safety_threshold//2)))
+    right_vertical_mask = scipy.ndimage.convolve1d(right_vertical_mask, weights=kernel, axis=1)
+    blank[right_vertical_mask] = 1
+
+
+    # print(np.min(right_vertical_edge[i]))
+    # print(np.max(right_vertical_edge[i]))
+    # print(right_vertical_edge[i].shape)
+    
+    # cv2.imshow("Right Vertical Edge", right_vertical_edge)
+    # cv2.waitKey(3)
+
+    '''
+    Calculate horizontal differences finding increasing or decreasing brightnesses
+    '''
+    vertical_edge = np.abs(cv_image_norm[:,0:-1] - cv_image_norm[:,1:])
+    
+    # cv2.imshow("Vertical Edge", vertical_edge)
+    # cv2.waitKey(3)
+
+    # cv2.imshow("Mask on blank", blank)
+    # cv2.waitKey(3)
+    cv2.imshow("Bloated img", bloated_cv_img)
+    cv2.waitKey(3)
 
 
 if __name__ == '__main__':
