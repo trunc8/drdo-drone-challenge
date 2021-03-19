@@ -6,18 +6,20 @@ find_package(catkin REQUIRED COMPONENTS
    roscpp
    rospy
    std_msgs
+   geometry_msgs
    message_generation
 )
 
 
  add_message_files(
  	FILES
-   teleopData.msg
+  teleopData.msg
  )
 
  generate_messages(
   DEPENDENCIES
    std_msgs
+   geometry_msgs
  )
 
 
