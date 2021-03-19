@@ -1,57 +1,4 @@
 #!/usr/bin/env python
-
-import rospy
-from geometry_msgs.msg import Twist
-from time import sleep
-
-v=2       #reference linear velocity
-w=1.25    #reference angular velocity
-x_pose=0.0f;
-y_pose=0.0f;
-z_pose=0.0f;
-roll=0.0f;
-pitch=0.0f
-yaw=0.0f;
-
-def move_forward(delta):
-    
-
-def rotate(w):
-    pub=rospy.Publisher('/turtle1/cmd_vel',Twist,queue_size=10)
-    rospy.init_node('drone_move',anonymous=True)
-    vel=Twist()
-    vel.linear.x=vel.linear.y=vel.linear.z=0
-    vel.angular.x=vel.angular.y=0
-    vel.angular.z=w
-    
-    t0=rospy.Time.now().to_sec()
-    while not rospy.is_shutdown():
-        pub.publish(vel)
-        if rospy.Time.now().to_sec()>1+t0:
-            break 
-
-    vel.angular.z=0
-    pub.publish(vel)
-
-def move():
-    pub_set_point_local=rospy.Publisher('/mavros/setpoint_raw/local',Twist,queue_size=10)
-    rospy.Subscriber("/mavros/global_position/local",nav_msgs/Odometry,gps_data_callback)
-    rospy.init_node('drone_move',anonymous=True)
-    vel=Twist()
-    vel.linear.x=vel.linear.y=vel.linear.z=0
-    vel.angular.x=vel.angular.y=vel.angular.z=0
-    pub.publish(vel)
-    sleep(1)
-    #movement algo comes here
-
-if __name__=="__main__":
-   `try:
-       move()
-    except rospy.ROSInterruptException:
-        pass
-#!/usr/bin/env python
-
-
 import rospy
 ##from hector_uav_msgs.msg import PoseActionGoal
 ##from geometry_msgs import PoseStamped
@@ -60,61 +7,73 @@ from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import Point,Twist
 from geometry_msgs.msg import PoseStamped
 from math import atan2
+from nav_msgs.msg import Odometry
+from drone_path_planner.msg import teleopData
+#from geometry_msgs import PoseStamped
+class navigation:
+    def __init__(self):
+        self.x_pose=0.0
+        self.y_pose=0.0
+        self.z_pose=0.0
+        self.roll=0.0
+        self.pitch=0.0
+        self.yaw=0.0
+        self.delta=0.0
+        self.decision=0
+        self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local',PoseStamped,queue_size=10)
+        self.sub1=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback)
+        self.subl2=rospy.Subscriber("/drone/teleop",teleopData,self.decision_calback)
+        self.msgp=PoseStamped()
+    def decision_calback(self,msg):
+        self.decision=msg.decision
+        self.delta=msg.delta
+    def gps_data_callback(self,msg):
+        self.x = msg.pose.position.x   
+        self.y = msg.pose.position.y   
+        self.z = msg.pose.position.z
+        rot_q =msg.pose.orientation
+        self.msgp.pose.orientation=msg.pose.orientation
+        (self.roll ,self.pitch ,self.theta)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
 
-x = 0.0
-y = 0.0
-z = 0.0
-theta = 0.0
+    def move_forward(self):
+        self.msgp.pose.position.z=self.z_pose
+        self.msgp.pose.position.x=self.x_pose+self.delta*cosf(self.yaw)
+        self.msgp.pose.position.y=self.y_pose+self.delta*sinf(self.yaw)
+    def move_up(self):
+        self.msgp.pose.position.z=self.z_pose+self.delta
+        self.msgp.pose.position.x=self.x_pose
+        self.msgp.pose.position.y=self.y_pose
+    def move_right(self):
+        self.msgp.pose.position.z=self.z_pose
+        self.msgp.pose.position.x=self.x_pose+self.delta*sinf(self.yaw)
+        self.msgp.pose.position.y=self.y_pose-self.delta*cosf(self.yaw)       
+    def nav(self):
+        if (self.decision==1):
+            move_forward()
+            self.pub_set_point_local.publish(msgp)
+            self.decision=0
+        elif (self.decision==2):
+            move_right()
+            self.pub_set_point_local.publish(msgp)
+            self.decision=0
+        elif (self.decision==3):
+            move_up()
+            self.pub_set_point_local.publish(msgp)
+            self.decision=0
 
-def newOdom (msg) :
-    global x
-    global y
-    global z
-    global theta
-    
-    x = msg.pose.position.x   ##pose.position.x
-    y = msg.pose.position.y    ##pose.position.y
-    z = msg.pose.position.z
-    rot_q =msg.pose.orientation
-    (roll ,pitch ,theta)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
+        
 
-rospy.init_node("speed_controller")
-sub = rospy.Subscriber("/ground_truth_to_tf/pose",PoseStamped ,newOdom)
-pub = rospy.Publisher("/cmd_vel/",Twist,queue_size=1)   
-  
-speed =Twist()
-r= rospy.Rate(1000) 
-goal = Point()
-goal.x =9
-goal.y =2
-goal.z =7
-
-while not rospy.is_shutdown():
-
-    inc_x=goal.x - x
-    inc_y=goal.y - y
-    inc_z=goal.z - z
-    print(x,y,z)
-    print(goal.x,goal.y,goal.z)
-    print(inc_x,inc_y,inc_z)
-    angle_to_goal = atan2(inc_y,inc_x)
-    if inc_z > 0.1 :
-
-        speed.linear.z = 0.5
-    else :
+if __name__ == '__main__':
+  rospy.init_node('navigator_node')
+  rospy.loginfo("navigator_node created")
+  try:
+    navigation_obj = navigation()    
  
-       
-        if abs(angle_to_goal - theta )>0.1 :
-            
-            speed.linear.x = 0.0
-            speed.angular.z = 0.3
-            print(speed.linear.z)
+    ## Wait until node has loaded completely
+    while (rospy.get_time()==0):
+      pass
+    rospy.loginfo("Beginning to accept the commands for teleop...")
+    navigation_obj.nav()
 
-        else :
-            
-            speed.linear.x = 0.5
-            speed.angular.z = 0.0
-            print(speed.linear.z)
-
-    pub.publish(speed)       
-    r.sleep()      
+  except rospy.ROSInterruptException:
+    pass
