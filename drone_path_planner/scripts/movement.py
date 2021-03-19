@@ -6,12 +6,13 @@ import rospy
 from tf.transformations import euler_from_quaternion
 from geometry_msgs.msg import Point,Twist
 from geometry_msgs.msg import PoseStamped
-from math import atan2
+from math import atan2, cos, sin
 from nav_msgs.msg import Odometry
 from drone_path_planner.msg import teleopData
 #from geometry_msgs import PoseStamped
 class navigation:
     def __init__(self):
+        self.rate=rospy.Rate(1)
         self.x_pose=0.0
         self.y_pose=0.0
         self.z_pose=0.0
@@ -28,38 +29,41 @@ class navigation:
         self.decision=msg.decision
         self.delta=msg.delta
     def gps_data_callback(self,msg):
-        self.x = msg.pose.position.x   
-        self.y = msg.pose.position.y   
-        self.z = msg.pose.position.z
-        rot_q =msg.pose.orientation
-        self.msgp.pose.orientation=msg.pose.orientation
+        self.x_pose = msg.pose.pose.position.x   
+        self.y_pose = msg.pose.pose.position.y   
+        self.z_pose = msg.pose.pose.position.z
+        print(self.z_pose)
+        rot_q =msg.pose.pose.orientation
+        self.msgp.pose.orientation=msg.pose.pose.orientation
         (self.roll ,self.pitch ,self.theta)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
 
     def move_forward(self):
         self.msgp.pose.position.z=self.z_pose
-        self.msgp.pose.position.x=self.x_pose+self.delta*cosf(self.yaw)
-        self.msgp.pose.position.y=self.y_pose+self.delta*sinf(self.yaw)
+        self.msgp.pose.position.x=self.x_pose+self.delta*cos(self.yaw)
+        self.msgp.pose.position.y=self.y_pose+self.delta*sin(self.yaw)
     def move_up(self):
         self.msgp.pose.position.z=self.z_pose+self.delta
         self.msgp.pose.position.x=self.x_pose
         self.msgp.pose.position.y=self.y_pose
     def move_right(self):
         self.msgp.pose.position.z=self.z_pose
-        self.msgp.pose.position.x=self.x_pose+self.delta*sinf(self.yaw)
-        self.msgp.pose.position.y=self.y_pose-self.delta*cosf(self.yaw)       
+        self.msgp.pose.position.x=self.x_pose+self.delta*sin(self.yaw)
+        self.msgp.pose.position.y=self.y_pose-self.delta*cos(self.yaw)       
     def nav(self):
-        if (self.decision==1):
-            move_forward()
-            self.pub_set_point_local.publish(msgp)
-            self.decision=0
-        elif (self.decision==2):
-            move_right()
-            self.pub_set_point_local.publish(msgp)
-            self.decision=0
-        elif (self.decision==3):
-            move_up()
-            self.pub_set_point_local.publish(msgp)
-            self.decision=0
+        while not rospy.is_shutdown():
+            if (self.decision==1):
+                self.move_forward()
+                self.pub_set_point_local.publish(self.msgp)
+                self.decision=0
+            elif (self.decision==2):
+                self.move_right()
+                self.pub_set_point_local.publish(self.msgp)
+                self.decision=0
+            elif (self.decision==3):
+                self.move_up()
+                self.pub_set_point_local.publish(self.msgp)
+                self.decision=0
+            self.rate.sleep()
 
         
 
