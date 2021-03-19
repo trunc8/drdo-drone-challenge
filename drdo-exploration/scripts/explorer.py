@@ -42,30 +42,29 @@ class Exploration:
     mask = (xyz_array[:,2] < 4.5) & (xyz_array[:,2] > 0.5)
     xyz_array = xyz_array[mask]
     dist = np.linalg.norm(xyz_array, axis=1)
-    print(max(dist))
+    # print(max(dist))
     # print("Received")
     # print(len(xyz_array))
 
   def pc2ImageCallback(self, pc2_img_msg):
-    # bridge = CvBridge()
-    # pc2_img_msg.encoding = "32FC1"
-    # try:
-    #   cv_img = bridge.imgmsg_to_cv2(pc2_img_msg, pc2_img_msg.encoding)
-    # except CvBridgeError as e:
-    #   print(e)
-    #   return
+    bridge = CvBridge()
+    pc2_img_msg.encoding = "32FC1"
+    try:
+      cv_img = bridge.imgmsg_to_cv2(pc2_img_msg, pc2_img_msg.encoding)
+    except CvBridgeError as e:
+      print(e)
+      return
     
-    # cv_image_array = np.array(cv_img, dtype = np.dtype('f8'))
-    # cv_image_norm = cv2.normalize(cv_image_array, cv_image_array, 0, 1, cv2.NORM_MINMAX)
-    # # Resize to the desired size
-    # cv_image_resized = cv2.resize(cv_image_norm, (pc2_img_msg.width, pc2_img_msg.height), interpolation = cv2.INTER_CUBIC)
-    # depthimg = np.array(cv_image_resized)
+    cv_image_array = np.array(cv_img, dtype = np.dtype('f8'))
+    cv_image_norm = cv2.normalize(cv_image_array, cv_image_array, 0, 1, cv2.NORM_MINMAX)
+    # Resize to the desired size
+    cv_image_resized = cv2.resize(cv_image_norm, (pc2_img_msg.width, pc2_img_msg.height), interpolation = cv2.INTER_CUBIC)
+    depthimg = np.array(cv_image_resized)
 
 
-    # # cv2.imshow("Depth raw image", depthimg)
-    # # cv2.waitKey(3)
-    # print(cv_image_norm.dtype)
-    pass
+    # cv2.imshow("Depth raw image", depthimg)
+    # cv2.waitKey(3)
+    print(cv_image_norm)
 
 
 if __name__ == '__main__':
