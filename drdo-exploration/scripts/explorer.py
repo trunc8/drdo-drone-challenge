@@ -56,15 +56,23 @@ class Exploration:
       return
     
     cv_image_array = np.array(cv_img, dtype = np.dtype('f8'))
-    cv_image_norm = cv2.normalize(cv_image_array, cv_image_array, 0, 1, cv2.NORM_MINMAX)
-    # Resize to the desired size
-    cv_image_resized = cv2.resize(cv_image_norm, (pc2_img_msg.width, pc2_img_msg.height), interpolation = cv2.INTER_CUBIC)
-    depthimg = np.array(cv_image_resized)
+    i = 400
+    print(np.min(cv_image_array[i]))
+    print(np.max(cv_image_array[i]))
+    print(cv_image_array[i].shape)
+
+    cv_image_norm = cv_image_array/10
+    cv2.imshow("Depth raw image", cv_image_norm)
+    cv2.waitKey(3)
+    # cv_image_norm = cv2.normalize(cv_image_array, cv_image_array, 0, 1, cv2.NORM_MINMAX)
+    # # Resize to the desired size
+    # cv_image_resized = cv2.resize(cv_image_norm, (pc2_img_msg.width, pc2_img_msg.height), interpolation = cv2.INTER_CUBIC)
+    # depthimg = np.array(cv_image_resized)
 
 
-    # cv2.imshow("Depth raw image", depthimg)
-    # cv2.waitKey(3)
-    print(cv_image_norm)
+    
+    # print(cv_image_norm)
+
 
 
 if __name__ == '__main__':
