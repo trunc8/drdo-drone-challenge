@@ -108,7 +108,7 @@ if __name__ == '__main__':
     setStabilizeMode()
     setArm()
     setTakeoffMode()
-    rate4=rospy.rate(1000)
+    rate4=rospy.Rate(1000)
     rate4.sleep()
     rospy.loginfo("Flight take off done successful and is ready for accepting furthur commands")
     ## Wait until node has loaded completely
