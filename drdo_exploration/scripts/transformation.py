@@ -65,12 +65,12 @@ def cam_frame(data):
 	global pc_arr
 	bridge = CvBridge()
 	img = bridge.imgmsg_to_cv2(data, "bgr8")
-	cv2.imshow('camera_feed',img)
-	cv2.waitKey(30)
+	# cv2.imshow('camera_feed',img)
+	# cv2.waitKey(30)
 	cloud_arr = pc_arr
 	mat1 = pixel_to_depth(320,240,cloud_arr)					
-	print(mat1.point.x, mat1.point.y, mat1.point.z)
-	print("--------------------------------------------------------------")
+	# print(mat1.point.x, mat1.point.y, mat1.point.z)
+	# print("--------------------------------------------------------------")
 
 if __name__ == '__main__':
 	rospy.init_node('world_coordinate', anonymous=True)
