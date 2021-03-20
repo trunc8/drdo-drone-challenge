@@ -1,18 +1,23 @@
 #!/usr/bin/env python
 
 # task: pointcloud exploration
+from __future__ import print_function
+
+import cv2
+import numpy as np
+import random
+import scipy.ndimage
+
 
 import rospy
+from geometry_msgs.msg import PointStamped, Point
 from sensor_msgs.msg import PointCloud2, Image
 from nav_msgs.msg import Odometry
 import ros_numpy
 import tf
 from cv_bridge import CvBridge, CvBridgeError
-import cv2
-import numpy as np
 
-import random
-import scipy.ndimage
+from drdo_exploration.msg import direction
 
 class Exploration:
   def __init__(self):
@@ -21,6 +26,7 @@ class Exploration:
     self.curr_orientation = None
     self.init_pose = None
     self.pc2_arr = None
+    self.listener = tf.TransformListener()
 
     pc2_topic = '/depth_camera/depth/points'
     pose_topic = '/mavros/global_position/local'
@@ -28,6 +34,8 @@ class Exploration:
     rospy.Subscriber(pc2_img_topic, Image, self.pc2ImageCallback)
     rospy.Subscriber(pc2_topic, PointCloud2, self.pc2Callback)
     rospy.Subscriber(pose_topic, Odometry, self.positionCallback)
+    dirn_topic = '/target_vector'
+    self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
 
 
   def positionCallback(self, local_pose_msg):
@@ -75,9 +83,66 @@ class Exploration:
     cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
 
     bloated_cv_img = self.bloatImage(cleaned_cv_img)
+    cv2.imshow("Bloating image", bloated_cv_img)
+    cv2.waitKey(3)
+
     target = self.findTarget(bloated_cv_img)
+    # mat = self.pixel_to_dirn(target[0],target[1])
+    # dirn = np.array([mat.point.x, mat.point.y, mat.point.z])
+
+    ps = self.pixel_to_dirn(target[0],target[1])
+    dirn = np.array([ps.point.x, ps.point.y, ps.point.z])
+    dirn = 1.*dirn/np.linalg.norm(dirn)
+
+    dirn_msg = direction()
+    dirn_msg.vec_x = dirn[0]
+    dirn_msg.vec_y = dirn[1]
+    dirn_msg.vec_z = dirn[2]
+    print(dirn_msg)
+    self.pub.publish(dirn_msg)
     
 
+
+  def pixel_to_dirn(self, h, w):
+    height, width = [480, 640]
+    target_px = np.array([h-height//2, w-width//2])
+    
+    FOCAL_LENGTH = 554.25 # From camera_info
+    IMAGE_PLANE_DISTANCE = 10
+    xp = (IMAGE_PLANE_DISTANCE/FOCAL_LENGTH)*target_px[1]
+    yp = (IMAGE_PLANE_DISTANCE/FOCAL_LENGTH)*target_px[0]
+    zp = IMAGE_PLANE_DISTANCE
+
+    # print(xp, yp, zp)
+
+    ps = PointStamped()
+    ps.header.frame_id = "depth_cam_link"
+    ps.header.stamp = rospy.Time(0)
+    ps.point.x = zp
+    ps.point.y = -xp
+    ps.point.z = -yp
+    # mat = self.listener.transformPoint("/map", ps)
+    # return mat
+    return ps
+
+
+  def pixel_to_depth(self, h, w):     #h,w are image coordinates
+    # print(h,w)
+    
+    xp = self.pc2_arr['x'][h][w]
+    yp = self.pc2_arr['y'][h][w]
+    zp = self.pc2_arr['z'][h][w]
+    
+
+
+    ps = PointStamped()
+    ps.header.frame_id = "depth_cam_link"
+    ps.header.stamp = rospy.Time(0)
+    ps.point.x = zp
+    ps.point.y = -xp
+    ps.point.z = -yp
+    mat = self.listener.transformPoint("/map", ps)
+    return mat
 
   def findTarget(self, bloated_cv_img):
     '''
@@ -89,7 +154,7 @@ class Exploration:
     candidates = bloated_cv_img == max_intensity
     candidates = candidates.astype(float)
 
-    BAND_WIDTH = 5
+    BAND_WIDTH = 1
     band_mask = np.zeros(bloated_cv_img.shape, dtype=bool)    
     band_mask[height//2-BAND_WIDTH:height//2+BAND_WIDTH,:] = 1
 
@@ -109,14 +174,15 @@ class Exploration:
       target = np.array([nonzero_candidates[0][idx],
                          nonzero_candidates[1][idx]])
 
-    cv2.imshow("Bloated img", candidates_in_band)
-    cv2.waitKey(3)
+    # print(target)
+    # cv2.imshow("candidates img", candidates_in_band)
+    # cv2.waitKey(3)
     return target
 
 
   def bloatImage(self, cleaned_cv_img):
     bloated_cv_img = cleaned_cv_img.copy()
-    SAFETY_THRESHOLD = 15 # in pixels (needs tuning)
+    SAFETY_THRESHOLD = 200 # in pixels (needs tuning)
     
     '''
     Calculate horizontal differences only finding decreasing brightnesses
