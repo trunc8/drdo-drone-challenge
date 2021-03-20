@@ -98,7 +98,7 @@ class Exploration:
     dirn_msg.vec_x = dirn[0]
     dirn_msg.vec_y = dirn[1]
     dirn_msg.vec_z = dirn[2]
-    print(dirn_msg)
+    #print(dirn_msg)
     self.pub.publish(dirn_msg)
     
 

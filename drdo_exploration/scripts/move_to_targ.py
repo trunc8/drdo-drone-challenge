@@ -8,14 +8,13 @@ from geometry_msgs.msg import Point,Twist
 from geometry_msgs.msg import PoseStamped
 from math import atan2, cos, sin
 from nav_msgs.msg import *
-from drone_exploration.msg import direction #Here direction is the message containing target co-ordinates.
+from drdo_exploration.msg import direction #Here direction is the message containing target co-ordinates.
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 #from geometry_msgs import PoseStamped
 
 
 class moveCopter:
     def __init__(self):
-        self.rate=rospy.Rate(1)
         '''
         All values are initialized to zero.
         pub_set_point_local publishes the goal_point co-ordinates.
@@ -30,16 +29,19 @@ class moveCopter:
         self.targ_x=0.0
         self.targ_y=0.0
         self.targ_z=0.0
-        self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local',PoseStamped,queue_size=10)
+        rospy.init_node('navigator_node')
+        self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=10)
         self.sub_gps=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback)
-        self.sub_targ_vector=rospy.Subscriber("/target_vector",direction, targ_vector_callback )
+        self.sub_targ_vector=rospy.Subscriber("/target_vector",direction, self.targ_vector_callback)
         self.msgp=PoseStamped()
+        self.rate=rospy.Rate(1)
+
 
     def gps_data_callback(self,msg):
-        '''
+        ''' 
         msgp is of PoseStamped msg type that we need to publish for going to the goal_point.
         the use of roll, pitch, and yaw needs to be looked into.
-        '''
+        ''' 
         self.x_pose = msg.pose.pose.position.x   
         self.y_pose = msg.pose.pose.position.y   
         self.z_pose = msg.pose.pose.position.z
@@ -55,7 +57,7 @@ class moveCopter:
         self.targ_x=msg.vec_x
         self.targ_y=msg.vec_y
         self.targ_z=msg.vec_z
-        move_to_target()
+        self.move_to_target()
 
     def move_to_target(self): 
         '''
@@ -65,11 +67,13 @@ class moveCopter:
         self.msgp.pose.position.x=self.x_pose+  self.targ_x*2
         self.msgp.pose.position.y=self.y_pose+  self.targ_y*2
         self.pub_set_point_local.publish(self.msgp)
+        print(self.msgp)
         
 
 if __name__ == '__main__':
   try:   
     moveCopter()
+    rospy.spin()
 
   except rospy.ROSInterruptException:
     pass
