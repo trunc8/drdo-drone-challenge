@@ -39,7 +39,7 @@
       </visual>
     
     <sensor name="depth_camera" type="depth">
-    <update_rate>20</update_rate>
+    <update_rate>1</update_rate>
     <always_on>1</always_on>
     <visualize>true</visualize>
     <camera>
