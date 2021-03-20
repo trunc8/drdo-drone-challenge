@@ -27,12 +27,13 @@ def setStabilizeMode():
 def setArm():
     rospy.wait_for_service('/mavros/cmd/arming')    
     try:
-        armService= False
+        armService_success= False
         rate3=rospy.Rate(1)
-        while not armService :     
+        while not armService_success :     
             arming = rospy.ServiceProxy('/mavros/cmd/arming', CommandBool)
             armService = arming(1)
-            if armService=='True':
+            armService_success= armService.success            
+            if armService_success=='True':
                 rospy.loginfo("set arm enabled")
             rate3.sleep()        
     except rospy.ServiceException:
