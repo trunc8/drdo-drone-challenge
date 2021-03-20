@@ -37,6 +37,12 @@ class Exploration:
     dirn_topic = '/target_vector'
     self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
 
+    KERNEL_SIZE = 640
+    decay_sequence = np.ones(KERNEL_SIZE//2, dtype=float)/(1+np.arange(KERNEL_SIZE//2))
+    self.kernel_right = np.concatenate((np.zeros(KERNEL_SIZE//2),
+                                        decay_sequence))
+    self.kernel_left = self.kernel_right[::-1]
+
 
   def positionCallback(self, local_pose_msg):
     self.curr_position = [local_pose_msg.pose.pose.position.x,
@@ -49,6 +55,7 @@ class Exploration:
 
     self.curr_orientation = tf.transformations.euler_from_quaternion(quaternion)
     # print(self.curr_position, self.curr_orientation)
+
 
   def pc2Callback(self, pc2_msg):
     self.pc2_arr = ros_numpy.numpify(pc2_msg)
@@ -82,13 +89,17 @@ class Exploration:
     cleaned_cv_img = cv_image_norm.copy()
     cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
 
-    bloated_cv_img = self.bloatImage(cleaned_cv_img)
-    cv2.imshow("Bloating image", bloated_cv_img)
-    cv2.waitKey(3)
+    penalized_cv_img = self.penalizeObstacleProximity(cleaned_cv_img)
+    # cv2.imshow("Bloating image", bloated_cv_img)
+    # cv2.waitKey(3)
 
-    target = self.findTarget(bloated_cv_img)
-    # mat = self.pixel_to_dirn(target[0],target[1])
-    # dirn = np.array([mat.point.x, mat.point.y, mat.point.z])
+
+
+    target = self.findTarget(penalized_cv_img)
+
+    cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
+    cv2.imshow("Penalized image", penalized_cv_img)
+    cv2.waitKey(3)
 
     ps = self.pixel_to_dirn(target[0],target[1])
     dirn = np.array([ps.point.x, ps.point.y, ps.point.z])
@@ -98,7 +109,9 @@ class Exploration:
     dirn_msg.vec_x = dirn[0]
     dirn_msg.vec_y = dirn[1]
     dirn_msg.vec_z = dirn[2]
-    print(dirn_msg)
+    
+    print("%.2f %.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
+    
     self.pub.publish(dirn_msg)
     
 
@@ -125,14 +138,12 @@ class Exploration:
     # return mat
     return ps
 
-
   def pixel_to_depth(self, h, w):     #h,w are image coordinates
     # print(h,w)
     
     xp = self.pc2_arr['x'][h][w]
     yp = self.pc2_arr['y'][h][w]
-    zp = self.pc2_arr['z'][h][w]
-    
+    zp = self.pc2_arr['z'][h][w]  
 
 
     ps = PointStamped()
@@ -144,21 +155,24 @@ class Exploration:
     mat = self.listener.transformPoint("/map", ps)
     return mat
 
-  def findTarget(self, bloated_cv_img):
+  def findTarget(self, penalized_cv_img):
     '''
     Find (u,v) pixel coordinates that's the
     best candidate for target
     '''
-    height, width = bloated_cv_img.shape
-    max_intensity = np.max(bloated_cv_img)
-    candidates = bloated_cv_img == max_intensity
+    height, width = penalized_cv_img.shape
+    max_intensity = np.max(penalized_cv_img)
+    candidates = penalized_cv_img == max_intensity
     candidates = candidates.astype(float)
 
+    # cv2.imshow("candidates img", candidates)
+    # cv2.waitKey(3)
+
     BAND_WIDTH = 1
-    band_mask = np.zeros(bloated_cv_img.shape, dtype=bool)    
+    band_mask = np.zeros(penalized_cv_img.shape, dtype=bool)    
     band_mask[height//2-BAND_WIDTH:height//2+BAND_WIDTH,:] = 1
 
-    candidates_in_band = np.zeros(bloated_cv_img.shape)
+    candidates_in_band = np.zeros(penalized_cv_img.shape)
     candidates_in_band = np.multiply(band_mask, candidates)
 
     
@@ -167,7 +181,7 @@ class Exploration:
       TODO
       All zeros, can't maintain same elevation for drone
       '''
-      target = np.zeros(2)
+      target = np.zeros(2, dtype=np.uint8)
     else:
       nonzero_candidates = candidates_in_band.nonzero()
       idx = random.randint(0, len(nonzero_candidates[0])-1)
@@ -180,35 +194,9 @@ class Exploration:
     return target
 
 
-  def bloatImage(self, cleaned_cv_img):
-    bloated_cv_img = cleaned_cv_img.copy()
-    SAFETY_THRESHOLD = 200 # in pixels (needs tuning)
+  def penalizeObstacleProximity(self, cleaned_cv_img):
+    penalized_cv_img = cleaned_cv_img.copy()
     
-    '''
-    Calculate horizontal differences only finding decreasing brightnesses
-    ----------
-    Decreasing brightness => Brighter(farther) to darker(closer)
-    So danger obstacle is on the right of the edge line
-    '''
-    left_vertical_edge = cleaned_cv_img[:,0:-1] - cleaned_cv_img[:,1:]
-    left_vertical_edge = left_vertical_edge.clip(min=0)
-    left_vertical_mask = left_vertical_edge > 0.1
-    kernel = np.concatenate((np.ones(SAFETY_THRESHOLD//2),
-                            np.zeros(SAFETY_THRESHOLD//2)))
-    left_vertical_mask = scipy.ndimage.convolve1d(left_vertical_mask, weights=kernel, axis=1)
-    left_vertical_mask = left_vertical_mask > 0.1
-
-    bloated_cv_img[:,1:][left_vertical_mask] = 0
-
-    # print(np.min(left_vertical_edge[i]))
-    # print(np.max(left_vertical_edge[i]))
-    # print(left_vertical_edge[i].shape)
-    # print(left_vertical_mask.shape)
-
-    # cv2.imshow("Left Vertical Edge", left_vertical_edge)
-    # cv2.waitKey(3)
-
-
     '''
     Calculate horizontal differences only finding increasing brightnesses
     ----------
@@ -217,22 +205,41 @@ class Exploration:
     '''
     right_vertical_edge = cleaned_cv_img[:,1:] - cleaned_cv_img[:,0:-1]
     right_vertical_edge = right_vertical_edge.clip(min=0)
-    right_vertical_mask = right_vertical_edge > 0.1
-    kernel = np.concatenate((np.zeros(SAFETY_THRESHOLD//2),
-                            np.ones(SAFETY_THRESHOLD//2)))
-    right_vertical_mask = scipy.ndimage.convolve1d(right_vertical_mask, weights=kernel, axis=1)
-    right_vertical_mask = right_vertical_mask > 0.1
-
-    bloated_cv_img[:,0:-1][right_vertical_mask] = 0
-
-    # print(np.min(right_vertical_edge[i]))
-    # print(np.max(right_vertical_edge[i]))
-    # print(right_vertical_edge[i].shape)
+    right_vertical_mask = (right_vertical_edge > 0.1).astype(float)
+    # This matrix is basically blips at the pixels of right_vertical_edge
     
-    # cv2.imshow("Right Vertical Edge", right_vertical_edge)
+    
+    right_vertical_penalty = scipy.ndimage.convolve1d(right_vertical_mask,
+          weights= self.kernel_right, mode='constant', cval=0, axis=1)
+
+    '''
+    Calculate horizontal differences only finding decreasing brightnesses
+    ----------
+    Decreasing brightness => Brighter(farther) to darker(closer)
+    So danger obstacle is on the right of the edge line
+    '''
+    left_vertical_edge = cleaned_cv_img[:,0:-1] - cleaned_cv_img[:,1:]
+    left_vertical_edge = left_vertical_edge.clip(min=0)
+    left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
+    # This matrix is basically blips at the pixels of left_vertical_edge
+
+    left_vertical_penalty = scipy.ndimage.convolve1d(left_vertical_mask,
+          weights= self.kernel_left, axis=1)
+    
+    penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
+    penalized_cv_img[:,1:] = penalized_cv_img[:,1:] - left_vertical_penalty
+    penalized_cv_img = penalized_cv_img.clip(min=0)
+
+    penalized_cv_img[:,0] = np.zeros(480)
+    penalized_cv_img[:,-1] = np.zeros(480)
+    # print(penalized_cv_img[0,400:])
+    # cv2.imshow("Penalized image", penalized_cv_img)
     # cv2.waitKey(3)
 
-    return bloated_cv_img
+    ## Penalize distance from horizontal centerline
+    
+
+    return penalized_cv_img
     
 
 if __name__ == '__main__':
@@ -242,3 +249,45 @@ if __name__ == '__main__':
     rospy.spin()
   except rospy.ROSInterruptException:
     rospy.loginfo("node terminated.")
+
+
+
+
+
+  # def bloatImage(self, cleaned_cv_img):
+  #   bloated_cv_img = cleaned_cv_img.copy()
+  #   SAFETY_THRESHOLD = 200 # in pixels (needs tuning)
+    
+  #   '''
+  #   Calculate horizontal differences only finding decreasing brightnesses
+  #   ----------
+  #   Decreasing brightness => Brighter(farther) to darker(closer)
+  #   So danger obstacle is on the right of the edge line
+  #   '''
+  #   left_vertical_edge = cleaned_cv_img[:,0:-1] - cleaned_cv_img[:,1:]
+  #   left_vertical_edge = left_vertical_edge.clip(min=0)
+  #   left_vertical_mask = left_vertical_edge > 0.1
+  #   kernel = np.concatenate((np.ones(SAFETY_THRESHOLD//2),
+  #                           np.zeros(SAFETY_THRESHOLD//2)))
+  #   left_vertical_mask = scipy.ndimage.convolve1d(left_vertical_mask, weights=kernel, axis=1)
+  #   left_vertical_mask = left_vertical_mask > 0.1
+
+  #   bloated_cv_img[:,1:][left_vertical_mask] = 0
+
+  #   '''
+  #   Calculate horizontal differences only finding increasing brightnesses
+  #   ----------
+  #   Increasing brightness => Darker(closer) to brighter(farther)
+  #   So danger obstacle is on the left of the edge line
+  #   '''
+  #   right_vertical_edge = cleaned_cv_img[:,1:] - cleaned_cv_img[:,0:-1]
+  #   right_vertical_edge = right_vertical_edge.clip(min=0)
+  #   right_vertical_mask = right_vertical_edge > 0.1
+  #   kernel = np.concatenate((np.zeros(SAFETY_THRESHOLD//2),
+  #                           np.ones(SAFETY_THRESHOLD//2)))
+  #   right_vertical_mask = scipy.ndimage.convolve1d(right_vertical_mask, weights=kernel, axis=1)
+  #   right_vertical_mask = right_vertical_mask > 0.1
+
+  #   bloated_cv_img[:,0:-1][right_vertical_mask] = 0
+
+  #   return bloated_cv_img
