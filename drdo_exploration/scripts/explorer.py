@@ -82,12 +82,53 @@ class Exploration:
     
     cv_image_array = np.array(cv_img, dtype = np.dtype('f8'))
     POINTCLOUD_CUTOFF = 10
-    cv_image_norm = cv_image_array/POINTCLOUD_CUTOFF    
+    cv_image_norm = cv_image_array/POINTCLOUD_CUTOFF
 
-    ## TODO: Filtering sky and ground ==> dont_see_mask
+    
 
     cleaned_cv_img = cv_image_norm.copy()
     cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
+
+    # ## Filtering sky and ground ==> dont_see_mask ------------------------------------------
+
+    # height, width = [480, 640]
+    # '''
+    # I have assumed that the origin is at the top left corner.
+    # '''
+    # FOCAL_LENGTH = 554.25 # From camera_info
+    # LOWER_LIMIT = 0.5
+    # UPPER_LIMIT= 4.5
+    # IMAGE_PLANE_DISTANCE = 10
+    # IMAGE_H_PIXELS = 480
+    # '''
+    # Half height is the original height in meters when the distance is 10m.
+    # '''
+    # HALF_PIXELS = IMAGE_H_PIXELS/2
+    # HALF_HEIGHT = (HALF_PIXELS/FOCAL_LENGTH)*IMAGE_PLANE_DISTANCE 
+    
+
+    # sky_ground_mask = np.ones(cleaned_cv_img.shape, dtype=bool)
+
+    # '''
+    # 1. For upper limit, the range is 0 to (image_H_PIXELS - (half_pixels+  rest pixels))
+    # This rest_pixels is calculated usng the given equation
+    # 2. For lower limit, the range is half_pixels+remaining to image_H_PIXELS.
+    # The remaining is calculated using the given equation.
+    # '''
+    # sky_limit = int((IMAGE_H_PIXELS-(HALF_PIXELS+ (UPPER_LIMIT-HALF_HEIGHT)*FOCAL_LENGTH//IMAGE_PLANE_DISTANCE)))
+    # ground_limit = int(HALF_PIXELS+((HALF_HEIGHT-LOWER_LIMIT)*FOCAL_LENGTH//IMAGE_PLANE_DISTANCE))
+    # sky_ground_mask[:sky_limit,:] = 0
+    # sky_ground_mask[ground_limit:,:] = 0
+    
+    # temp_cv_img = cleaned_cv_img.copy()
+    # cleaned_cv_img = np.multiply(temp_cv_img,sky_ground_mask)
+    
+    # cv2.imshow("After masking image", sky_ground_mask.astype(float))
+    # cv2.waitKey(3)
+
+
+
+    # ## dont_see_mask ------------------------------------------------------------------------
 
     penalized_cv_img = self.penalizeObstacleProximity(cleaned_cv_img)
     # cv2.imshow("Bloating image", bloated_cv_img)
@@ -110,7 +151,7 @@ class Exploration:
     dirn_msg.vec_y = dirn[1]
     dirn_msg.vec_z = dirn[2]
     
-    print("%.2f %.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
+    print("%.2f -%.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
     
     self.pub.publish(dirn_msg)
     
@@ -228,7 +269,7 @@ class Exploration:
     
     penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
     penalized_cv_img[:,1:] = penalized_cv_img[:,1:] - left_vertical_penalty
-    penalized_cv_img = penalized_cv_img.clip(min=0)
+    # penalized_cv_img = penalized_cv_img.clip(min=0)
 
     penalized_cv_img[:,0] = np.zeros(480)
     penalized_cv_img[:,-1] = np.zeros(480)
@@ -237,7 +278,18 @@ class Exploration:
     # cv2.waitKey(3)
 
     ## Penalize distance from horizontal centerline
+
+    y_dist_penalty = np.arange(480) - 479/2.
+    y_dist_penalty = np.multiply(y_dist_penalty, y_dist_penalty)
+    y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
+    # print(y_dist_penalty.shape)
     
+    K = 1e-2
+    y_dist_penalty = K*y_dist_penalty/(np.max(y_dist_penalty))
+    penalized_cv_img = penalized_cv_img - y_dist_penalty
+    penalized_cv_img.clip(min=0)
+    # cv2.imshow("Y dist penalty", penalized_cv_img)
+    # cv2.waitKey(3)
 
     return penalized_cv_img
     
