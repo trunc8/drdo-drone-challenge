@@ -108,8 +108,8 @@ class Exploration:
     2. For lower limit, the range is half_pixels+remaining to image_H_PIXELS.
     The remaining is calculated using the given equation.
     '''
-    sky_ground_mask[:,:(IMAGE_H_PIXELS-(HALF_PIXELS+ (UPPER_LIMIT-HALF_HEIGHT)*FOCAL_LENGTH//IMAGE_PLANE_DISTANCE))] = 0
-    sky_ground_mask[:,HALF_PIXELS+((HALF_HEIGHT-LOWER_LIMIT)*FOCAL_LENGTH//IMAGE_PLANE_DISTANCE):IMAGE_H_PIXELS] = 0
+    sky_ground_mask[:(IMAGE_H_PIXELS-(HALF_PIXELS+ (UPPER_LIMIT-HALF_HEIGHT)*FOCAL_LENGTH//IMAGE_PLANE_DISTANCE)),:] = 0
+    sky_ground_mask[HALF_PIXELS+((HALF_HEIGHT-LOWER_LIMIT)*FOCAL_LENGTH//IMAGE_PLANE_DISTANCE):IMAGE_H_PIXELS,:] = 0
     
     temp_cv_img = cleaned_cv_img.copy()
     cleaned_cv_img = np.dot(temp_cv_img,sky_ground_mask)
