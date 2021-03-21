@@ -6,6 +6,14 @@ from __future__ import division
 
 import cv2
 import numpy as np
+
+
+import numpy.matlib
+from numpy.lib.stride_tricks import as_strided
+
+
+
+
 import random
 import scipy.ndimage
 
@@ -196,49 +204,44 @@ class Helper:
 
     return penalized_cv_img
 
+  def bloatImage(self, cleaned_cv_img, penalized_cv_img):
+    kernel_size = (25,51)
 
-
-
-
-
-
-
-
-
-  # def bloatImage(self, cleaned_cv_img):
-  #   bloated_cv_img = cleaned_cv_img.copy()
-  #   SAFETY_THRESHOLD = 200 # in pixels (needs tuning)
+    cv2.imshow("Cleaned image", penalized_cv_img)
     
-  #   '''
-  #   Calculate horizontal differences only finding decreasing brightnesses
-  #   ----------
-  #   Decreasing brightness => Brighter(farther) to darker(closer)
-  #   So danger obstacle is on the right of the edge line
-  #   '''
-  #   left_vertical_edge = cleaned_cv_img[:,0:-1] - cleaned_cv_img[:,1:]
-  #   left_vertical_edge = left_vertical_edge.clip(min=0)
-  #   left_vertical_mask = left_vertical_edge > 0.1
-  #   kernel = np.concatenate((np.ones(SAFETY_THRESHOLD//2),
-  #                           np.zeros(SAFETY_THRESHOLD//2)))
-  #   left_vertical_mask = scipy.ndimage.convolve1d(left_vertical_mask, weights=kernel, axis=1)
-  #   left_vertical_mask = left_vertical_mask > 0.1
 
-  #   bloated_cv_img[:,1:][left_vertical_mask] = 0
+    img = self.pool2d(cleaned_cv_img, kernel_size, 
+                  stride=1, padding=0, pool_mode='min')
 
-  #   '''
-  #   Calculate horizontal differences only finding increasing brightnesses
-  #   ----------
-  #   Increasing brightness => Darker(closer) to brighter(farther)
-  #   So danger obstacle is on the left of the edge line
-  #   '''
-  #   right_vertical_edge = cleaned_cv_img[:,1:] - cleaned_cv_img[:,0:-1]
-  #   right_vertical_edge = right_vertical_edge.clip(min=0)
-  #   right_vertical_mask = right_vertical_edge > 0.1
-  #   kernel = np.concatenate((np.zeros(SAFETY_THRESHOLD//2),
-  #                           np.ones(SAFETY_THRESHOLD//2)))
-  #   right_vertical_mask = scipy.ndimage.convolve1d(right_vertical_mask, weights=kernel, axis=1)
-  #   right_vertical_mask = right_vertical_mask > 0.1
+    cv2.imshow("Pooled image", img)
+    cv2.waitKey(3)
 
-  #   bloated_cv_img[:,0:-1][right_vertical_mask] = 0
+  def pool2d(self, A, kernel_size, stride, padding, pool_mode='min'):
+    '''
+    2D Pooling
 
-  #   return bloated_cv_img
+    Parameters:
+        A: input 2D array
+        kernel_size: tuple, the size of the window
+        stride: int, the stride of the window
+        padding: int, implicit zero paddings on both sides of the input
+        pool_mode: string, 'max' or 'avg'
+    '''
+    # Padding
+    A = np.pad(A, padding, mode='constant')
+
+    # Window view of A
+    output_shape = ((A.shape[0] - kernel_size[0])//stride + 1,
+                    (A.shape[1] - kernel_size[1])//stride + 1)
+    A_w = as_strided(A, shape = output_shape + kernel_size, 
+                        strides = (stride*A.strides[0],
+                                   stride*A.strides[1]) + A.strides)
+    A_w = A_w.reshape(-1, *kernel_size)
+
+    # Return the result of pooling
+    if pool_mode == 'max':
+      return A_w.max(axis=(1,2)).reshape(output_shape)
+    elif pool_mode == 'avg':
+      return A_w.mean(axis=(1,2)).reshape(output_shape)
+    elif pool_mode == 'min':
+      return A_w.min(axis=(1,2)).reshape(output_shape)
