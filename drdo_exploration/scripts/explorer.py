@@ -32,11 +32,9 @@ class Exploration(Helper):
     self.pc2_arr = None
     self.listener = tf.TransformListener()
 
-    pc2_topic = '/depth_camera/depth/points'
     pose_topic = '/mavros/global_position/local'
     pc2_img_topic = '/depth_camera/depth/image_raw'
     rospy.Subscriber(pc2_img_topic, Image, self.pc2ImageCallback)
-    rospy.Subscriber(pc2_topic, PointCloud2, self.pc2Callback)
     rospy.Subscriber(pose_topic, Odometry, self.positionCallback)
     dirn_topic = '/target_vector'
     self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
@@ -58,10 +56,6 @@ class Exploration(Helper):
                    local_pose_msg.pose.pose.orientation.w]
 
     self.curr_orientation = tf.transformations.euler_from_quaternion(quaternion)
-
-
-  def pc2Callback(self, pc2_msg):
-    self.pc2_arr = ros_numpy.numpify(pc2_msg)
 
 
   def pc2ImageCallback(self, pc2_img_msg):
@@ -107,7 +101,14 @@ class Exploration(Helper):
     print("%.2f %.2f %.2f"%(dirn[0], -dirn[1], -dirn[2]))
     
     self.pub.publish(dirn_msg)
-    
+
+
+
+
+
+
+
+ 
 
 if __name__ == '__main__':
   try:
