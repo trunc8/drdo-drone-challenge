@@ -70,7 +70,7 @@ class navigation:
         self.z_pose = msg.pose.pose.position.z
         rot_q =msg.pose.pose.orientation
         self.msgp.pose.orientation=msg.pose.pose.orientation
-        (self.roll ,self.pitch ,self.theta)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
+        (self.roll ,self.pitch ,self.yaw)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
 
     def move_forward(self):
         self.msgp.pose.position.z=self.z_pose
@@ -83,7 +83,11 @@ class navigation:
     def move_right(self):
         self.msgp.pose.position.z=self.z_pose
         self.msgp.pose.position.x=self.x_pose+self.delta*sin(self.yaw)
-        self.msgp.pose.position.y=self.y_pose-self.delta*cos(self.yaw)       
+        self.msgp.pose.position.y=self.y_pose-self.delta*cos(self.yaw)
+    def set_z(self):
+        self.msgp.pose.position.x=self.x_pose
+        self.msgp.pose.position.y=self.y_pose
+        self.msgp.pose.position.z=self.delta       
     def nav(self):
         while not rospy.is_shutdown():
             if (self.decision==1):
@@ -98,6 +102,10 @@ class navigation:
                 self.move_up()
                 self.pub_set_point_local.publish(self.msgp)
                 self.decision=0
+            elif (self.decision=4)
+                self.set_z()
+                self.pub_set_point_local.publish(self.msgp)
+                self.decision=0
             self.rate.sleep()
         
 
@@ -106,9 +114,9 @@ if __name__ == '__main__':
   rospy.loginfo("navigator_node created")
   try:
     navigation_obj = navigation()  
-    setStabilizeMode()
-    setArm()
-    setTakeoffMode()
+    # setStabilizeMode()
+    # setArm()
+    # setTakeoffMode()
     rate4=rospy.Rate(1000)
     rate4.sleep()
     rospy.loginfo("Flight take off done successful and is ready for accepting furthur commands")
