@@ -82,11 +82,16 @@ class Exploration(Helper):
 
     penalized_cv_img = self.penalizeObstacleProximity(cleaned_cv_img)
 
+    #image_operation to apply colllision avoidance with drone
+
+    collision_cv_img = self.collision_avoidance(cleaned_cv_img)
+    
+
 
     target = self.findTarget(penalized_cv_img)
 
-    cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
-    cv2.imshow("Penalized image", penalized_cv_img)
+    #cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
+    #cv2.imshow("Penalized image", penalized_cv_img)
     cv2.waitKey(3)
 
     ps = self.pixel_to_dirn(target[0],target[1])
@@ -98,7 +103,7 @@ class Exploration(Helper):
     dirn_msg.vec_y = dirn[1]
     dirn_msg.vec_z = dirn[2]
     
-    print("%.2f %.2f %.2f"%(dirn[0], -dirn[1], -dirn[2]))
+    #print("%.2f %.2f %.2f"%(dirn[0], -dirn[1], -dirn[2]))
     
     self.pub.publish(dirn_msg)
 

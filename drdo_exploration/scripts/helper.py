@@ -20,7 +20,7 @@ from cv_bridge import CvBridge, CvBridgeError
 
 from drdo_exploration.msg import direction
 
-
+POINTCLOUD_CUTOFF = 10
 
 class Helper:
   def filterSkyGround(self, cleaned_cv_img):
@@ -39,7 +39,7 @@ class Helper:
     '''
     HALF_PIXELS = height/2
     # HALF_HEIGHT = (HALF_PIXELS/FOCAL_LENGTH)*IMAGE_PLANE_DISTANCE 
-
+    
 
     sky_ground_mask = np.ones(cleaned_cv_img.shape, dtype=bool)
 
@@ -197,9 +197,99 @@ class Helper:
     return penalized_cv_img
 
 
+  
+  def collision_avoidance(self, cleaned_cv_img ):
+
+    collision_cv_img = cleaned_cv_img.copy()
+    
+    right_vertical_edge = cleaned_cv_img[:,1:] - cleaned_cv_img[:,0:-1]
+    right_vertical_edge = right_vertical_edge.clip(min=0)
+    right_vertical_mask = (right_vertical_edge > 0.1).astype(float)
+
+
+  
+    left_vertical_edge = cleaned_cv_img[:,0:-1] - cleaned_cv_img[:,1:]
+    left_vertical_edge = left_vertical_edge.clip(min=0)
+    left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
+   
+    edges_img_right = np.zeros(collision_cv_img.shape)
+    edges_img = np.zeros(collision_cv_img.shape)
+    edges_img_left = np.zeros(collision_cv_img.shape)
+
+    edges_img_right[:,0:-1] = right_vertical_mask
+    edges_img_left[:,1:] = left_vertical_mask
+    edges_img = np.logical_or(edges_img_left,edges_img_right)
+    
+    #depth = np.logical_and(collision_cv_img,yo)
+    
+    projected_1_d_array = np.amax(edges_img , axis=0)
+    #print("projected_1d_array shape",projected_1_d_array.shape)
+    #print(projected_1_d_array)
+    col_edges = np.where(projected_1_d_array==1) #return (arr[196,509],);flatten array #np.ndarray.flatten
+    #print("col_edges[0]",col_edges[0])
+    FOCAL_LENGTH = 554.25
+    DRONE_SIZE = 0.5  #exact value 0.47
+
+    for i in col_edges[0]:  
+      print("i",i)                                    
+      row_edge = np.where(edges_img[:,i] == 1) 
+      #print("row_edge",row_edge)
+      #print("row_edge",row_edge[0])
+      print("row_edge_first",row_edge[0][0])
+      print("row_edge_last" , row_edge[0][-1])
+      #cv2.imshow("collision_cv_img",collision_cv_img)
+
+      image_plane_distance = (collision_cv_img[row_edge[0][0],i]+ 1e-1) * POINTCLOUD_CUTOFF
+      #image_plane_distance = depth_value
+      drone_size_projected = (DRONE_SIZE/2)*FOCAL_LENGTH/image_plane_distance
+      
+      drone_proj_left = i - drone_size_projected
+      drone_proj_right = i + drone_size_projected
+
+      print("drone_size_projected",drone_size_projected)
+
+      edges_img[ row_edge[0][0]:row_edge[0][-1] , int(drone_proj_left):int(drone_proj_right) ] = 1
+
+      collision_cv_img = np.multiply(collision_cv_img , (1-edges_img))
+      
+
+  
+      
+    
+
+    #print(b)
+
+    #print(depth[:,b])
+    # dest-(h,w)
+
+    #cleaned_cv_img*10 along the edges detected = depth value>
+    #image_plane distance = depth value>
+    #FOCAL_LENGTH = 554.25
+    #DRONE_SIZE = 47cm
+    # drone_proj_left = w - (DRONE_SIZE//2)*fl/image_plane_dis
+    # drone_proj_right = w + (DRONE_SIZE//2)*fl/image_plane_dis
+    # spanned over the whole column
+
+
+  
+    
 
 
 
+
+    # collision_cv_img[:,0:-1] = np.multiply(collision_cv_img[:,0:-1], (1-right_vertical_mask))
+    
+    # #collision_cv_img[:,1:][left_vertical_mask] = 0
+    # collision_cv_img[:,0:-1] = np.multiply(collision_cv_img[:,0:-1], (1-left_vertical_mask))
+    #cv2.imshow("cleaned_cv_img",collision_cv_img)
+    # cv2.imshow("right_vertical_mask",right_vertical_mask)
+    # cv2.imshow("left_vertical_mask",left_vertical_mask)
+    # cv2.imshow("vertical edges", vertical_edges)
+    #cv2.imshow("vertical_edges",yo.astype(float))
+    cv2.imshow("collision_cv_img" , collision_cv_img)
+
+    cv2.waitKey(3)
+    return collision_cv_img
 
 
 
