@@ -229,8 +229,8 @@ class Exploration:
     right_vertical_mask = (right_vertical_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of right_vertical_edge
     
-    
-    right_vertical_penalty = scipy.ndimage.convolve1d(right_vertical_mask,
+    K = 10
+    right_vertical_penalty = K*scipy.ndimage.convolve1d(right_vertical_mask,
           weights= self.kernel_right, mode='constant', cval=0, axis=1)
 
     '''
@@ -244,7 +244,7 @@ class Exploration:
     left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of left_vertical_edge
 
-    left_vertical_penalty = scipy.ndimage.convolve1d(left_vertical_mask,
+    left_vertical_penalty = K*scipy.ndimage.convolve1d(left_vertical_mask,
           weights= self.kernel_left, axis=1)
     
     penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
