@@ -2,6 +2,7 @@
 
 # task: pointcloud exploration
 from __future__ import print_function
+from __future__ import division
 
 import cv2
 import numpy as np
@@ -22,8 +23,8 @@ from drdo_exploration.msg import direction
 class Exploration:
   def __init__(self):
 
-    self.curr_position = None
-    self.curr_orientation = None
+    self.curr_position = np.zeros(3)
+    self.curr_orientation = np.zeros(3)
     self.init_pose = None
     self.pc2_arr = None
     self.listener = tf.TransformListener()
@@ -89,51 +90,11 @@ class Exploration:
     cleaned_cv_img = cv_image_norm.copy()
     cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
 
-    # ## Filtering sky and ground ==> dont_see_mask ------------------------------------------
-
-    # height, width = [480, 640]
-    # '''
-    # I have assumed that the origin is at the top left corner.
-    # '''
-    # FOCAL_LENGTH = 554.25 # From camera_info
-    # LOWER_LIMIT = 0.5
-    # UPPER_LIMIT= 4.5
-    # IMAGE_PLANE_DISTANCE = 10
-    # IMAGE_H_PIXELS = 480
-    # '''
-    # Half height is the original height in meters when the distance is 10m.
-    # '''
-    # HALF_PIXELS = IMAGE_H_PIXELS/2
-    # HALF_HEIGHT = (HALF_PIXELS/FOCAL_LENGTH)*IMAGE_PLANE_DISTANCE 
     
+    cleaned_cv_img = self.filterSkyGround(cleaned_cv_img)
 
-    # sky_ground_mask = np.ones(cleaned_cv_img.shape, dtype=bool)
-
-    # '''
-    # 1. For upper limit, the range is 0 to (image_H_PIXELS - (half_pixels+  rest pixels))
-    # This rest_pixels is calculated usng the given equation
-    # 2. For lower limit, the range is half_pixels+remaining to image_H_PIXELS.
-    # The remaining is calculated using the given equation.
-    # '''
-    # sky_limit = int((IMAGE_H_PIXELS-(HALF_PIXELS+ (UPPER_LIMIT-HALF_HEIGHT)*FOCAL_LENGTH//IMAGE_PLANE_DISTANCE)))
-    # ground_limit = int(HALF_PIXELS+((HALF_HEIGHT-LOWER_LIMIT)*FOCAL_LENGTH//IMAGE_PLANE_DISTANCE))
-    # sky_ground_mask[:sky_limit,:] = 0
-    # sky_ground_mask[ground_limit:,:] = 0
-    
-    # temp_cv_img = cleaned_cv_img.copy()
-    # cleaned_cv_img = np.multiply(temp_cv_img,sky_ground_mask)
-    
-    # cv2.imshow("After masking image", sky_ground_mask.astype(float))
-    # cv2.waitKey(3)
-
-
-
-    # ## dont_see_mask ------------------------------------------------------------------------
 
     penalized_cv_img = self.penalizeObstacleProximity(cleaned_cv_img)
-    # cv2.imshow("Bloating image", bloated_cv_img)
-    # cv2.waitKey(3)
-
 
 
     target = self.findTarget(penalized_cv_img)
@@ -151,10 +112,50 @@ class Exploration:
     dirn_msg.vec_y = dirn[1]
     dirn_msg.vec_z = dirn[2]
     
-    print("%.2f -%.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
+    print("%.2f %.2f %.2f"%(dirn[0], -dirn[1], -dirn[2]))
     
     self.pub.publish(dirn_msg)
     
+  def filterSkyGround(self, cleaned_cv_img):
+    ## Filtering sky and ground ==> dont_see_mask -----------------------------------------
+    
+    height, width = [480, 640]
+    '''
+    I have assumed that the origin is at the top left corner.
+    '''
+    FOCAL_LENGTH = 554.25 # From camera_info
+    LOWER_LIMIT = 0.5
+    UPPER_LIMIT= 4.5
+    IMAGE_PLANE_DISTANCE = 10
+    '''
+    Half height is the original height in meters when the distance is 10m.
+    '''
+    HALF_PIXELS = height/2
+    # HALF_HEIGHT = (HALF_PIXELS/FOCAL_LENGTH)*IMAGE_PLANE_DISTANCE 
+
+
+    sky_ground_mask = np.ones(cleaned_cv_img.shape, dtype=bool)
+
+    '''
+    1. For upper limit, the range is 0 to (image_H_PIXELS - (half_pixels+  rest pixels))
+    This rest_pixels is calculated usng the given equation
+    2. For lower limit, the range is half_pixels+remaining to image_H_PIXELS.
+    The remaining is calculated using the given equation.
+    '''
+    sky_limit = int((HALF_PIXELS-(UPPER_LIMIT-self.curr_position[2])*FOCAL_LENGTH/IMAGE_PLANE_DISTANCE))
+    ground_limit = int(HALF_PIXELS+((self.curr_position[2]-LOWER_LIMIT)*FOCAL_LENGTH/IMAGE_PLANE_DISTANCE))
+    if sky_limit>=0 and sky_limit<height:
+      sky_ground_mask[:sky_limit,:] = 0
+    if ground_limit>=0 and ground_limit<height:
+      sky_ground_mask[ground_limit:,:] = 0
+
+    temp_cv_img = cleaned_cv_img.copy()
+    cleaned_cv_img = np.multiply(temp_cv_img,sky_ground_mask)
+
+    # cv2.imshow("After masking image", cleaned_cv_img.astype(float))
+    # cv2.waitKey(3)
+
+    return cleaned_cv_img
 
 
   def pixel_to_dirn(self, h, w):
@@ -206,32 +207,11 @@ class Exploration:
     candidates = penalized_cv_img == max_intensity
     candidates = candidates.astype(float)
 
-    # cv2.imshow("candidates img", candidates)
-    # cv2.waitKey(3)
+    nonzero_candidates = candidates.nonzero()
+    idx = random.randint(0, len(nonzero_candidates[0])-1)
+    target = np.array([nonzero_candidates[0][idx],
+                       nonzero_candidates[1][idx]])
 
-    BAND_WIDTH = 1
-    band_mask = np.zeros(penalized_cv_img.shape, dtype=bool)    
-    band_mask[height//2-BAND_WIDTH:height//2+BAND_WIDTH,:] = 1
-
-    candidates_in_band = np.zeros(penalized_cv_img.shape)
-    candidates_in_band = np.multiply(band_mask, candidates)
-
-    
-    if not np.any(candidates_in_band):
-      '''
-      TODO
-      All zeros, can't maintain same elevation for drone
-      '''
-      target = np.zeros(2, dtype=np.uint8)
-    else:
-      nonzero_candidates = candidates_in_band.nonzero()
-      idx = random.randint(0, len(nonzero_candidates[0])-1)
-      target = np.array([nonzero_candidates[0][idx],
-                         nonzero_candidates[1][idx]])
-
-    # print(target)
-    # cv2.imshow("candidates img", candidates_in_band)
-    # cv2.waitKey(3)
     return target
 
 
@@ -280,14 +260,31 @@ class Exploration:
     ## Penalize distance from horizontal centerline
 
     y_dist_penalty = np.arange(480) - 479/2.
-    y_dist_penalty = np.multiply(y_dist_penalty, y_dist_penalty)
+    y_dist_penalty = np.abs(y_dist_penalty)
     y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
     # print(y_dist_penalty.shape)
     
-    K = 1e-2
-    y_dist_penalty = K*y_dist_penalty/(np.max(y_dist_penalty))
+    K_cam = 1e-1
+    y_dist_penalty = K_cam*y_dist_penalty/(np.max(y_dist_penalty))
     penalized_cv_img = penalized_cv_img - y_dist_penalty
     penalized_cv_img.clip(min=0)
+
+
+    ## Penalize deviation of z-coordinate from Z_REF
+
+    Z_REF = 2.5
+    K_altitude = 1
+
+    err = (self.curr_position[2]-Z_REF)/Z_REF
+    z_penalty = K_altitude*np.arange(480)*np.abs(err)/480
+    if err>0:
+      z_penalty = z_penalty[::-1]
+
+    z_penalty = np.matlib.repmat(z_penalty,640,1).T
+    penalized_cv_img = penalized_cv_img - z_penalty
+    penalized_cv_img.clip(min=0)
+
+
     # cv2.imshow("Y dist penalty", penalized_cv_img)
     # cv2.waitKey(3)
 
@@ -301,6 +298,8 @@ if __name__ == '__main__':
     rospy.spin()
   except rospy.ROSInterruptException:
     rospy.loginfo("node terminated.")
+
+
 
 
 
