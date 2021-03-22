@@ -23,6 +23,51 @@ from drdo_exploration.msg import direction
 
 
 class Helper:
+    
+
+  def defineParameters(self):
+    ## 1/n decay
+    # decay_sequence = np.ones(KERNEL_SIZE//2, dtype=float)/(1+np.arange(KERNEL_SIZE//2))
+
+    ## BELL CURVE decay
+    '''
+    e^-{(x)^2/DECAY_RATE}
+    '''
+    # decay_sequence = np.ones(KERNEL_SIZE//2, dtype=float)*np.exp(1)
+
+    # decay_power = np.arange(KERNEL_SIZE//2)
+    # decay_power = -1.*np.power(decay_power,2)/DECAY_RATE
+    # decay_sequence = np.power(decay_sequence, decay_power)
+
+
+    ## BUTTERWORTH decay
+    '''
+    1-1/(1+(d/x)^2n)
+    '''
+
+    KERNEL_SIZE = 300
+    DECAY_RATE = 10
+    DECAY_CUTOFF = 150
+    decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
+    decay_sequence = DECAY_CUTOFF/decay_sequence
+    decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
+    decay_sequence = 1/(1+decay_sequence)
+    decay_sequence = 1 - decay_sequence
+    
+
+    self.kernel_right = np.concatenate((np.zeros(KERNEL_SIZE//2),
+                                        decay_sequence))
+    self.kernel_left = self.kernel_right[::-1]
+
+    self.POINTCLOUD_CUTOFF = 10
+
+    # Penalization tunables
+    self.K_vertical = 10
+    self.K_cam = 1e-1
+    self.Z_REF = 2.5
+    self.K_altitude = 1
+
+
   def filterSkyGround(self, cleaned_cv_img):
     ## Filtering sky and ground ==> dont_see_mask -----------------------------------------
     
@@ -39,7 +84,7 @@ class Helper:
     '''
     HALF_PIXELS = height/2
     # HALF_HEIGHT = (HALF_PIXELS/FOCAL_LENGTH)*IMAGE_PLANE_DISTANCE 
-
+    
 
     sky_ground_mask = np.ones(cleaned_cv_img.shape, dtype=bool)
 
@@ -123,7 +168,7 @@ class Helper:
   def penalizeObstacleProximity(self, cleaned_cv_img):
     penalized_cv_img = cleaned_cv_img.copy()
     
-    K_vertical = 1
+    
     '''
     Calculate horizontal differences only finding increasing brightnesses
     ----------
@@ -136,7 +181,7 @@ class Helper:
     # This matrix is basically blips at the pixels of right_vertical_edge
     
     
-    right_vertical_penalty = K_vertical*scipy.ndimage.convolve1d(right_vertical_mask,
+    right_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(right_vertical_mask,
           weights= self.kernel_right, mode='constant', cval=0, axis=1)
 
     '''
@@ -150,7 +195,7 @@ class Helper:
     left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of left_vertical_edge
 
-    left_vertical_penalty = K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
+    left_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
           weights= self.kernel_left, axis=1)
     
     penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
@@ -170,19 +215,18 @@ class Helper:
     y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
     # print(y_dist_penalty.shape)
     
-    K_cam = 1e-1
-    y_dist_penalty = K_cam*y_dist_penalty/(np.max(y_dist_penalty))
+    
+    y_dist_penalty = self.K_cam*y_dist_penalty/(np.max(y_dist_penalty))
     penalized_cv_img = penalized_cv_img - y_dist_penalty
     penalized_cv_img.clip(min=0)
 
 
-    ## Penalize deviation of z-coordinate from Z_REF
+    ## Penalize deviation of z-coordinate from self.Z_REF
 
-    Z_REF = 2.5
-    K_altitude = 1
+    
 
-    err = (self.curr_position[2]-Z_REF)/Z_REF
-    z_penalty = K_altitude*np.arange(480)*np.abs(err)/480
+    err = (self.curr_position[2]-self.Z_REF)/self.Z_REF
+    z_penalty = self.K_altitude*np.arange(480)*np.abs(err)/480
     if err>0:
       z_penalty = z_penalty[::-1]
 
@@ -197,9 +241,99 @@ class Helper:
     return penalized_cv_img
 
 
+  
+  def collision_avoidance(self, cleaned_cv_img ):
+
+    collision_cv_img = cleaned_cv_img.copy()
+    
+    right_vertical_edge = cleaned_cv_img[:,1:] - cleaned_cv_img[:,0:-1]
+    right_vertical_edge = right_vertical_edge.clip(min=0)
+    right_vertical_mask = (right_vertical_edge > 0.1).astype(float)
+
+
+  
+    left_vertical_edge = cleaned_cv_img[:,0:-1] - cleaned_cv_img[:,1:]
+    left_vertical_edge = left_vertical_edge.clip(min=0)
+    left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
+   
+    edges_img_right = np.zeros(collision_cv_img.shape)
+    edges_img = np.zeros(collision_cv_img.shape)
+    edges_img_left = np.zeros(collision_cv_img.shape)
+
+    edges_img_right[:,0:-1] = right_vertical_mask
+    edges_img_left[:,1:] = left_vertical_mask
+    edges_img = np.logical_or(edges_img_left,edges_img_right)
+    
+    #depth = np.logical_and(collision_cv_img,yo)
+    
+    projected_1_d_array = np.amax(edges_img , axis=0)
+    #print("projected_1d_array shape",projected_1_d_array.shape)
+    #print(projected_1_d_array)
+    col_edges = np.where(projected_1_d_array==1) #return (arr[196,509],);flatten array #np.ndarray.flatten
+    #print("col_edges[0]",col_edges[0])
+    FOCAL_LENGTH = 554.25
+    DRONE_SIZE = 0.5  #exact value 0.47
+
+    for i in col_edges[0]:  
+      print("i",i)                                    
+      row_edge = np.where(edges_img[:,i] == 1) 
+      #print("row_edge",row_edge)
+      #print("row_edge",row_edge[0])
+      print("row_edge_first",row_edge[0][0])
+      print("row_edge_last" , row_edge[0][-1])
+      #cv2.imshow("collision_cv_img",collision_cv_img)
+
+      image_plane_distance = (collision_cv_img[row_edge[0][0],i]+ 1e-1) * self.POINTCLOUD_CUTOFF
+      #image_plane_distance = depth_value
+      drone_size_projected = (DRONE_SIZE/2)*FOCAL_LENGTH/image_plane_distance
+      
+      drone_proj_left = i - drone_size_projected
+      drone_proj_right = i + drone_size_projected
+
+      print("drone_size_projected",drone_size_projected)
+
+      edges_img[ row_edge[0][0]:row_edge[0][-1] , int(drone_proj_left):int(drone_proj_right) ] = 1
+
+      collision_cv_img = np.multiply(collision_cv_img , (1-edges_img))
+      
+
+  
+      
+    
+
+    #print(b)
+
+    #print(depth[:,b])
+    # dest-(h,w)
+
+    #cleaned_cv_img*10 along the edges detected = depth value>
+    #image_plane distance = depth value>
+    #FOCAL_LENGTH = 554.25
+    #DRONE_SIZE = 47cm
+    # drone_proj_left = w - (DRONE_SIZE//2)*fl/image_plane_dis
+    # drone_proj_right = w + (DRONE_SIZE//2)*fl/image_plane_dis
+    # spanned over the whole column
+
+
+  
+    
 
 
 
+
+    # collision_cv_img[:,0:-1] = np.multiply(collision_cv_img[:,0:-1], (1-right_vertical_mask))
+    
+    # #collision_cv_img[:,1:][left_vertical_mask] = 0
+    # collision_cv_img[:,0:-1] = np.multiply(collision_cv_img[:,0:-1], (1-left_vertical_mask))
+    #cv2.imshow("cleaned_cv_img",collision_cv_img)
+    # cv2.imshow("right_vertical_mask",right_vertical_mask)
+    # cv2.imshow("left_vertical_mask",left_vertical_mask)
+    # cv2.imshow("vertical edges", vertical_edges)
+    #cv2.imshow("vertical_edges",yo.astype(float))
+    # cv2.imshow("collision_cv_img" , collision_cv_img)
+
+    # cv2.waitKey(3)
+    return collision_cv_img
 
 
 
