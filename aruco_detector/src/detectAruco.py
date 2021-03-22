@@ -33,21 +33,31 @@ def loadImages(data):
      if ids is None:
           print("LP")
      else:
-          print(ids)
-          print("R VEC ",vecs[0])
-          print("T VEC ",vecs[1])
+          for id in ids:
+               print(id)
+               print("R VEC ",vecs[0])
+               print("T VEC ",vecs[1])
 
-          R_ct = np.matrix(cv2.Rodrigues(vecs[0])[0])
-          R_tc = R_ct.T
-          pos_camera = -R_ct*np.matrix(vecs[1]).T
+               # R_ct = np.matrix(cv2.Rodrigues(vecs[0])[0])
+               # R_tc = R_ct.T
+               # pos_camera = -R_ct*np.matrix(vecs[1]).T
 
-          print(pos_camera)
+               # print(pos_camera)
+
+               center = [0,0]
+
+               center[0] = (corners[id][0][0] + corners[id][1][0] + corners[id][1][0] + corners[id][1][0])/4.0
+               center[1] = (corners[id][0][1] + corners[id][1][1] + corners[id][1][1] + corners[id][1][1])/4.0
+
+               translationVectorInPixels = [(center[0] - 320),(center[1] - 240)]
+               print(translationVectorInPixels)
+#               print("STEP SIZE: ",pow(translationVectorInPixels[0]**2 + translationVectorInPixels[1]**2,0.5))
      
-          print(corners)
-          imgMat = imgMat.astype(np.float)
-          imgMat = np.divide(imgMat,255.0)
-          cv2.imshow("Label",imgMat)
-          cv2.waitKey(3)
+               print(corners)
+               imgMat = imgMat.astype(np.float)
+               imgMat = np.divide(imgMat,255.0)
+               cv2.imshow("Label",imgMat)
+               cv2.waitKey(3)
 
 def listner():
 
