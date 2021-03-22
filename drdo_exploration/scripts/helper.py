@@ -20,9 +20,54 @@ from cv_bridge import CvBridge, CvBridgeError
 
 from drdo_exploration.msg import direction
 
-POINTCLOUD_CUTOFF = 10
+
 
 class Helper:
+    
+
+  def defineParameters(self):
+    ## 1/n decay
+    # decay_sequence = np.ones(KERNEL_SIZE//2, dtype=float)/(1+np.arange(KERNEL_SIZE//2))
+
+    ## BELL CURVE decay
+    '''
+    e^-{(x)^2/DECAY_RATE}
+    '''
+    # decay_sequence = np.ones(KERNEL_SIZE//2, dtype=float)*np.exp(1)
+
+    # decay_power = np.arange(KERNEL_SIZE//2)
+    # decay_power = -1.*np.power(decay_power,2)/DECAY_RATE
+    # decay_sequence = np.power(decay_sequence, decay_power)
+
+
+    ## BUTTERWORTH decay
+    '''
+    1-1/(1+(d/x)^2n)
+    '''
+
+    KERNEL_SIZE = 300
+    DECAY_RATE = 10
+    DECAY_CUTOFF = 150
+    decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
+    decay_sequence = DECAY_CUTOFF/decay_sequence
+    decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
+    decay_sequence = 1/(1+decay_sequence)
+    decay_sequence = 1 - decay_sequence
+    
+
+    self.kernel_right = np.concatenate((np.zeros(KERNEL_SIZE//2),
+                                        decay_sequence))
+    self.kernel_left = self.kernel_right[::-1]
+
+    self.POINTCLOUD_CUTOFF = 10
+
+    # Penalization tunables
+    self.K_vertical = 10
+    self.K_cam = 1e-1
+    self.Z_REF = 2.5
+    self.K_altitude = 1
+
+
   def filterSkyGround(self, cleaned_cv_img):
     ## Filtering sky and ground ==> dont_see_mask -----------------------------------------
     
@@ -123,7 +168,7 @@ class Helper:
   def penalizeObstacleProximity(self, cleaned_cv_img):
     penalized_cv_img = cleaned_cv_img.copy()
     
-    K_vertical = 1
+    
     '''
     Calculate horizontal differences only finding increasing brightnesses
     ----------
@@ -136,7 +181,7 @@ class Helper:
     # This matrix is basically blips at the pixels of right_vertical_edge
     
     
-    right_vertical_penalty = K_vertical*scipy.ndimage.convolve1d(right_vertical_mask,
+    right_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(right_vertical_mask,
           weights= self.kernel_right, mode='constant', cval=0, axis=1)
 
     '''
@@ -150,7 +195,7 @@ class Helper:
     left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of left_vertical_edge
 
-    left_vertical_penalty = K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
+    left_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
           weights= self.kernel_left, axis=1)
     
     penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
@@ -170,19 +215,18 @@ class Helper:
     y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
     # print(y_dist_penalty.shape)
     
-    K_cam = 1e-1
-    y_dist_penalty = K_cam*y_dist_penalty/(np.max(y_dist_penalty))
+    
+    y_dist_penalty = self.K_cam*y_dist_penalty/(np.max(y_dist_penalty))
     penalized_cv_img = penalized_cv_img - y_dist_penalty
     penalized_cv_img.clip(min=0)
 
 
-    ## Penalize deviation of z-coordinate from Z_REF
+    ## Penalize deviation of z-coordinate from self.Z_REF
 
-    Z_REF = 2.5
-    K_altitude = 1
+    
 
-    err = (self.curr_position[2]-Z_REF)/Z_REF
-    z_penalty = K_altitude*np.arange(480)*np.abs(err)/480
+    err = (self.curr_position[2]-self.Z_REF)/self.Z_REF
+    z_penalty = self.K_altitude*np.arange(480)*np.abs(err)/480
     if err>0:
       z_penalty = z_penalty[::-1]
 
@@ -239,7 +283,7 @@ class Helper:
       print("row_edge_last" , row_edge[0][-1])
       #cv2.imshow("collision_cv_img",collision_cv_img)
 
-      image_plane_distance = (collision_cv_img[row_edge[0][0],i]+ 1e-1) * POINTCLOUD_CUTOFF
+      image_plane_distance = (collision_cv_img[row_edge[0][0],i]+ 1e-1) * self.POINTCLOUD_CUTOFF
       #image_plane_distance = depth_value
       drone_size_projected = (DRONE_SIZE/2)*FOCAL_LENGTH/image_plane_distance
       
@@ -286,9 +330,9 @@ class Helper:
     # cv2.imshow("left_vertical_mask",left_vertical_mask)
     # cv2.imshow("vertical edges", vertical_edges)
     #cv2.imshow("vertical_edges",yo.astype(float))
-    cv2.imshow("collision_cv_img" , collision_cv_img)
+    # cv2.imshow("collision_cv_img" , collision_cv_img)
 
-    cv2.waitKey(3)
+    # cv2.waitKey(3)
     return collision_cv_img
 
 
