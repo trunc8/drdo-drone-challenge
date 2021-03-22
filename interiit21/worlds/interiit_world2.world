@@ -18,7 +18,7 @@
       <include>
         <uri>model://drone_with_depth_camera</uri>
       </include>
-      <pose> -8.0 -14 0 0 0 1.57</pose>
+      <pose> 20.482 9.482 0 0 0 1.57</pose>
     </model>
 
     <model name='ground_plane'>

@@ -102,7 +102,7 @@ class navigation:
                 self.move_up()
                 self.pub_set_point_local.publish(self.msgp)
                 self.decision=0
-            elif (self.decision=4)
+            elif (self.decision==4):
                 self.set_z()
                 self.pub_set_point_local.publish(self.msgp)
                 self.decision=0
