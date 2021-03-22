@@ -59,10 +59,27 @@ class Helper:
                                         decay_sequence))
     self.kernel_left = self.kernel_right[::-1]
 
+
+    KERNEL_SIZE = 200
+    DECAY_RATE = 10
+    DECAY_CUTOFF = 50
+    decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
+    decay_sequence = DECAY_CUTOFF/decay_sequence
+    decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
+    decay_sequence = 1/(1+decay_sequence)
+    decay_sequence = 1 - decay_sequence
+
+    self.kernel_bottom = np.concatenate((np.zeros(KERNEL_SIZE//2),
+                                        decay_sequence))
+    self.kernel_top = self.kernel_bottom[::-1]
+
+
+
     self.POINTCLOUD_CUTOFF = 10
 
     # Penalization tunables
     self.K_vertical = 10
+    self.K_horizontal = 10
     self.K_cam = 1e-1
     self.Z_REF = 2.5
     self.K_altitude = 1
@@ -168,7 +185,6 @@ class Helper:
     So danger obstacle is on the left of the edge line
     '''
     right_vertical_edge = cleaned_cv_img[:,1:] - cleaned_cv_img[:,0:-1]
-    right_vertical_edge = right_vertical_edge.clip(min=0)
     right_vertical_mask = (right_vertical_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of right_vertical_edge
     
@@ -183,13 +199,46 @@ class Helper:
     So danger obstacle is on the right of the edge line
     '''
     left_vertical_edge = cleaned_cv_img[:,0:-1] - cleaned_cv_img[:,1:]
-    left_vertical_edge = left_vertical_edge.clip(min=0)
     left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of left_vertical_edge
 
     left_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
           weights= self.kernel_left, mode='constant', cval=0, axis=1)
+
+
+
+    '''
+    Calculate vertical differences only finding decreasing brightnesses
+    ----------
+    Decreasing brightness => Brighter(farther) to darker(closer)
+    So danger obstacle is on the bottom of the edge line
+    '''
+    bottom_horizontal_edge = cleaned_cv_img[0:-1,:] - cleaned_cv_img[1:,:]
+    bottom_horizontal_mask = (bottom_horizontal_edge > 0.1).astype(float)
+    # This matrix is basically blips at the pixels of bottom_horizontal_edge
+
+    bottom_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(bottom_horizontal_mask,
+          weights= self.kernel_bottom, mode='constant', cval=0, axis=1)
+
+
+
+    '''
+    Calculate vertical differences only finding increasing brightnesses
+    ----------
+    Increasing brightness => Darker(closer) to brighter(farther)
+    So danger obstacle is on the top of the edge line
+    '''
+    top_horizontal_edge = cleaned_cv_img[1:,:] - cleaned_cv_img[0:-1,:]
+    top_horizontal_mask = (top_horizontal_edge > 0.1).astype(float)
+    # This matrix is basically blips at the pixels of top_horizontal_edge
+
+    top_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(top_horizontal_mask,
+          weights= self.kernel_top, mode='constant', cval=0, axis=1)
     
+
+
+
+
     # penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
     # penalized_cv_img[:,1:] = penalized_cv_img[:,1:] - left_vertical_penalty
     # penalized_cv_img = penalized_cv_img.clip(min=0)
@@ -234,10 +283,18 @@ class Helper:
     penalized_cv_img[:,1:] = penalized_cv_img[:,1:] - left_vertical_penalty
     penalized_cv_img[:,0] = np.zeros(480)
     penalized_cv_img[:,-1] = np.zeros(480)
-    
-    penalized_cv_img = penalized_cv_img - y_dist_penalty
 
-    penalized_cv_img = penalized_cv_img - z_penalty
+    penalized_cv_img[0:-1,:] = penalized_cv_img[0:-1,:] - bottom_horizontal_penalty
+    penalized_cv_img[1:,:] = penalized_cv_img[1:,:] - top_horizontal_penalty
+    penalized_cv_img[0,:] = np.zeros(640)
+    penalized_cv_img[-1,:] = np.zeros(640)
+
+
+
+
+    # penalized_cv_img = penalized_cv_img - y_dist_penalty
+
+    # penalized_cv_img = penalized_cv_img - z_penalty
 
     penalized_cv_img.clip(min=0)
 

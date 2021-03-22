@@ -30,7 +30,6 @@ class Exploration(Helper):
     self.curr_position = np.zeros(3)
     self.curr_orientation = np.zeros(3)
     self.init_pose = None
-    self.pc2_arr = None
     self.listener = tf.TransformListener()
 
     pose_topic = '/mavros/global_position/local'
