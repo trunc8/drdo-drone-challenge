@@ -47,7 +47,7 @@ class Helper:
 
     KERNEL_SIZE = 300
     DECAY_RATE = 10
-    DECAY_CUTOFF = 150
+    DECAY_CUTOFF = 180
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
@@ -159,7 +159,17 @@ class Helper:
     candidates = candidates.astype(float)
 
     nonzero_candidates = candidates.nonzero()
-    idx = random.randint(0, len(nonzero_candidates[0])-1)
+    y_values = nonzero_candidates[0]
+    x_values = nonzero_candidates[1]
+    length = len(x_values)
+
+    idx = np.argpartition(x_values, len(x_values) // 2)[len(x_values) // 2]
+    # sorted_x_values = np.sort(x_values)
+    # coupled_y_values = y_values(x_values.tolist().argsort())
+    # target = np.array(
+
+
+    # idx = random.randint(0, len(nonzero_candidates[0])-1)
     target = np.array([nonzero_candidates[0][idx],
                        nonzero_candidates[1][idx]])
 
