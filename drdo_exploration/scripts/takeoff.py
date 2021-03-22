@@ -73,6 +73,7 @@ def setDisarm():
 
 
 def setTakeoffMode():
+    global takeoff
     rospy.wait_for_service('/mavros/cmd/takeoff')
     try:
         takeoffService = rospy.ServiceProxy('/mavros/cmd/takeoff', mavros_msgs.srv.CommandTOL) 
