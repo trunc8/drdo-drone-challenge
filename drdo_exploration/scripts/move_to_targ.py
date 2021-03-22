@@ -75,7 +75,7 @@ class moveCopter:
         self.targ_z=msg.vec_z
         self.rel_yaw = math.atan2(self.targ_y,self.targ_x)
         self.move_to_target()
-        self.rate.sleep()
+        # self.rate.sleep()
 
 
     def move_to_target(self): 
@@ -85,7 +85,7 @@ class moveCopter:
         # print(self.msgp)
         q = quaternion_from_euler(0, 0, self.yawPID())
         # print(q)
-        delta = 0.3
+        delta = 0.1
         delta_x = self.targ_x*np.cos(self.yaw)-self.targ_y*np.sin(self.yaw)
         delta_y = self.targ_x*np.sin(self.yaw)+self.targ_y*np.cos(self.yaw)
         delta_x = delta_x*delta
