@@ -45,7 +45,7 @@ class Helper:
     1-1/(1+(d/x)^2n)
     '''
 
-    KERNEL_SIZE = 300
+    KERNEL_SIZE = 400
     DECAY_RATE = 10
     DECAY_CUTOFF = 180
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
@@ -60,9 +60,9 @@ class Helper:
     self.kernel_left = self.kernel_right[::-1]
 
 
-    KERNEL_SIZE = 200
-    DECAY_RATE = 10
-    DECAY_CUTOFF = 50
+    KERNEL_SIZE = 300
+    DECAY_RATE = 5
+    DECAY_CUTOFF = 100
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
@@ -83,6 +83,10 @@ class Helper:
     self.K_cam = 1e-1
     self.Z_REF = 2.5
     self.K_altitude = 1
+
+
+    # Danger distance threshold
+    self.DANGER_DISTANCE = 2
 
 
   def filterSkyGround(self, cleaned_cv_img):
@@ -150,7 +154,7 @@ class Helper:
     return ps
 
 
-  def findTarget(self, penalized_cv_img):
+  def findTarget(self, penalized_cv_img, cleaned_cv_img):
     '''
     Find (u,v) pixel coordinates that's the
     best candidate for target
@@ -172,7 +176,15 @@ class Helper:
     target = np.array([nonzero_candidates[0][idx],
                        nonzero_candidates[1][idx]])
 
-    return target
+    # print("Target Depth: ", self.POINTCLOUD_CUTOFF*cleaned_cv_img[target[0],
+                    # target[1]])
+    danger_flag = 0
+    if self.POINTCLOUD_CUTOFF*cleaned_cv_img[target[0],
+                    target[1]] < self.DANGER_DISTANCE:
+      danger_flag = 1
+      print("DANGERRRRRRR")
+    
+    return target, danger_flag
 
   def penalizeObstacleProximity(self, cleaned_cv_img):
     penalized_cv_img = cleaned_cv_img.copy()

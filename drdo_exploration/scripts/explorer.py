@@ -14,6 +14,7 @@ import rospy
 from geometry_msgs.msg import PointStamped, Point
 from sensor_msgs.msg import PointCloud2, Image
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Int16
 import ros_numpy
 import tf
 from cv_bridge import CvBridge, CvBridgeError
@@ -29,18 +30,24 @@ class Exploration(Helper):
 
     self.curr_position = np.zeros(3)
     self.curr_orientation = np.zeros(3)
-    self.init_pose = None
-    self.listener = tf.TransformListener()
+    self.IN_DANGER = 0
+    # self.listener = tf.TransformListener()
 
     pose_topic = '/mavros/global_position/local'
     pc2_img_topic = '/depth_camera/depth/image_raw'
+    safesearch_stop_topic = '/safesearch/stop'
     rospy.Subscriber(pc2_img_topic, Image, self.pc2ImageCallback)
     rospy.Subscriber(pose_topic, Odometry, self.positionCallback)
+    rospy.Subscriber(safesearch_stop_topic, Int16, self.stopSearchCallback)
     dirn_topic = '/target_vector'
-    self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
+    safesearch_start_topic = '/safesearch/start'
+    self.dirn_pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
+    self.safesearch_pub = rospy.Publisher(safesearch_start_topic, Int16, queue_size=1)
 
     self.defineParameters()
 
+  def stopSearchCallback(self, msg):
+    self.IN_DANGER = msg.data
 
   def positionCallback(self, local_pose_msg):
     self.curr_position = [local_pose_msg.pose.pose.position.x,
@@ -83,17 +90,23 @@ class Exploration(Helper):
     
 
 
-    target = self.findTarget(penalized_cv_img)
+    target, danger_flag = self.findTarget(penalized_cv_img, cleaned_cv_img)
 
     cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
     cv2.circle(penalized_cv_img, (target[1],target[0]), 10, 1, -1)
     cv2.imshow("Penalized image", penalized_cv_img)
-
-    # cv2.circle(collision_cv_img, (target[1],target[0]), 20, 0, -1)
-    # cv2.circle(collision_cv_img, (target[1],target[0]), 10, 1, -1)
-    # cv2.imshow("collision_cv_img" , collision_cv_img)
-    
+   
     cv2.waitKey(3)
+
+    safesearch_msg = Int16()
+    if self.IN_DANGER or danger_flag:
+      # Don't publish direction message. Pass control to safesearch
+      safesearch_msg.data = 1
+      self.IN_DANGER = 1
+    else:
+      # All's okay
+      safesearch_msg.data = 0
+    self.safesearch_pub.publish(safesearch_msg)
 
     ps = self.pixel_to_dirn(target[0],target[1])
     dirn = np.array([ps.point.x, ps.point.y, ps.point.z])
@@ -106,7 +119,8 @@ class Exploration(Helper):
     
     print("%.2f %.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
     
-    self.pub.publish(dirn_msg)
+    if not self.IN_DANGER:
+      self.dirn_pub.publish(dirn_msg)
 
 
 
