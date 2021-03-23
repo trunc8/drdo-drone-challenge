@@ -33,6 +33,7 @@ def callback_opencv(data):
 	aruco.cX = 0.0
 	aruco.cY = 0.0
 	aruco.distance = 0.0
+	aruco.edge_distance=0.0
 
 
 	if ids is None: ##If no marker is detected
@@ -67,16 +68,27 @@ def callback_opencv(data):
 			cv2.circle(img, (cX, cY), 4, (0,255,0), -1)
 			# cv2.circle(img,(img.shape[1]//2,img.shape[0]//2),4,(255,0,0),-1)
 
+<<<<<<< HEAD
+			cv2.imshow("frame",img)
+			cv2.waitKey(3)
+			print ("Cx is ", cX)
+			print ("CY is ", cY)
+			print ("Image_shape_0",img.shape[0])
+			print ("Image_shape_0",img.shape[1])
+			edge_distance = sqrt( (topLeft[0]-topRight[0])**2 + (topLeft[0]-topRight[0])**2 )//2
+=======
 			# cv2.imshow("frame",img)
 			# cv2.waitKey(3)
 
 			#edge_distance = sqrt( (topLeft[0]-topRight[0])**2 + (topLeft[0]-topRight[0])**2 )//2
+>>>>>>> aff46c525661423cd9965fa7492a567a80bc5ca0
 			distance = 	sqrt( (cX-img.shape[1]//2)**2 + (cY-img.shape[0]//2)**2 )
 			print(distance)
 			aruco.flag = 1
-			aruco.cX = cX
-			aruco.cY = cY
+			aruco.cY = cX-img.shape[1]//2
+			aruco.cX = -cY+img.shape[0]//2
 			aruco.distance = distance
+			aruco.edge_distance=edge_distance
 
 	pub_aruco_detect.publish(aruco)
 
