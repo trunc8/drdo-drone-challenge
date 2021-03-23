@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import math
 from drone_path_planner.msg import teleopData
 from mavros_msgs.srv import SetMode
-from std_msgs.msg import Int16
+from std_msgs.msg import String
 
 #Camera matrix if needed
 # cameraMat = np.zeros((3,3))
@@ -58,12 +58,15 @@ def loadImages(data):
 
      if ids is None: ##If no marker is detected
           print("FINDING MARKERS!!!")
+          flag_stop = String()
+          flag_stop.data = "Keep looking"
+          pub_stop_explore.publish(flag_stop)
 
 
 
      else:
-          flag_stop = Int16()
-          flag_stop.data = 1
+          flag_stop = String()
+          flag_stop.data = "Stop"
           pub_stop_explore.publish(flag_stop)
 
           msg = teleopData()
@@ -83,6 +86,7 @@ def loadImages(data):
                     markerIndex = i
                
           if markerIndex is not None: #Only if id 0 is found
+               print("Found marker. Now landing.")
 
                flag_zero_detected = 1
 
@@ -173,7 +177,7 @@ def setStabilizeMode():
 if __name__ == '__main__':
 
      rospy.init_node('listener', anonymous=True)
-     pub = rospy.Publisher("/drone/teleop",teleopData)
-     pub_stop_explore = rospy.Publisher("/stop_exploring_flag", Int16)
+     pub = rospy.Publisher("/drone/teleop",teleopData,queue_size=10)
+     pub_stop_explore = rospy.Publisher("/stop_exploring_flag", String,queue_size=10)
      rospy.Subscriber("/camera/color/image_raw/", Image, loadImages)
      rospy.spin()

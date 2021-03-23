@@ -13,9 +13,12 @@ from math import atan2, cos, sin
 from nav_msgs.msg import *
 from drdo_exploration.msg import direction #Here direction is the message containing target co-ordinates.
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
+from std_msgs.msg import String
 #from geometry_msgs import PoseStamped
 
 import numpy as np
+
+
 
 class moveCopter:
     def __init__(self):
@@ -38,6 +41,7 @@ class moveCopter:
         rospy.init_node('navigator_node')
         self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=10)
         self.sub_gps=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback)
+        self.flag_to_stop = rospy.Subscriber("/stop_exploring_flag", String, self.stop_moving_callback)
         self.sub_targ_vector=rospy.Subscriber("/target_vector",direction, self.targ_vector_callback)
         self.msgp=PoseStamped()
         self.rate=rospy.Rate(1)
@@ -62,7 +66,7 @@ class moveCopter:
 
 
 
-        print("gps_data_callback: %.2fm %.2fm %.2f deg"%(self.x_pose, self.y_pose, self.yaw*180/3.14))
+        #print("gps_data_callback: %.2fm %.2fm %.2f deg"%(self.x_pose, self.y_pose, self.yaw*180/3.14))
         
 
     def targ_vector_callback(self,msg):
@@ -74,7 +78,7 @@ class moveCopter:
         self.targ_y=msg.vec_y
         self.targ_z=msg.vec_z
         self.rel_yaw = math.atan2(self.targ_y,self.targ_x)
-        self.move_to_target()
+        #self.move_to_target()
         # self.rate.sleep()
 
 
@@ -102,7 +106,14 @@ class moveCopter:
         # print("Target pose")
         # print(self.msgp.pose.position.x, self.msgp.pose.position.y, self.msgp.pose.position.z)
 
-        
+    def stop_moving_callback(self,msg):
+        a= msg.data
+        if(a=="Keep looking"):
+            self.move_to_target()
+        else:
+            rospy.signal_shutdown("Open Movement.py")
+
+
     def yawPID(self):
     
       Kp = 0.8
