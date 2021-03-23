@@ -45,9 +45,9 @@ class Helper:
     1-1/(1+(d/x)^2n)
     '''
 
-    KERNEL_SIZE = 400
-    DECAY_RATE = 10
-    DECAY_CUTOFF = 180
+    KERNEL_SIZE = 300
+    DECAY_RATE = 6
+    DECAY_CUTOFF = 100
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
@@ -60,9 +60,9 @@ class Helper:
     self.kernel_left = self.kernel_right[::-1]
 
 
-    KERNEL_SIZE = 300
-    DECAY_RATE = 5
-    DECAY_CUTOFF = 100
+    KERNEL_SIZE = 200
+    DECAY_RATE = 10
+    DECAY_CUTOFF = 50
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
