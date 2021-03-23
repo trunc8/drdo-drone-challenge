@@ -20,54 +20,7 @@ length = []
 check2 = []
 final = []
 
-
-class Survey(Helper):
-	def __init__(self):
-		self.curr_position = np.zeros(3)
-		self.curr_orientation = np.zeros(3)
-		self.init_pose = None
-		self.pc2_arr = None
-		self.listener = tf.TransformListener()
-
-
-			 
-		rospy.Subscriber('/mavros/global_position/local', Odometry, self.positionCallback)
-			# dirn_topic = '/target_vector'
-			# self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
-
-		rospy.Subscriber('/depth_camera/depth/image_raw', Image, self.ImageCallback)
-		rospy.Subscriber("/safesearch/start", Int16, self.start_surveil_callback) 
-
-		self.drone_move_pub = rospy.Publisher('/safesearch/teleop',teleopData,queue_size = 1)  
-		self.safesearch_complete_pub = rospy.Publisher('/safesearch/complete',Int16 ,queue_size=1)
-
-		self.surveil_flag = 0
-		self.indicator =  0
-
-		self.defineParameters()
-
-		self.rate = rospy.Rate(10)
-
-		self.new_waypoint_found = bool()
-		self.target = None
-		self.intensity_at_target = None
-		self.target_array = [None]*18
-		self.target_intensity_array = [None]*18
-		#self.target_xyz_array = np.zeros(18)#shape 18 values
-		self.THRESHOLD_INTENSITY = None #tunable parameter
-
-	def positionCallback(self, local_pose_msg):
-		self.curr_position = [local_pose_msg.pose.pose.position.x,
-							local_pose_msg.pose.pose.position.y,
-							local_pose_msg.pose.pose.position.z]
-		quaternion = [local_pose_msg.pose.pose.orientation.x,
-					 local_pose_msg.pose.pose.orientation.y,
-					 local_pose_msg.pose.pose.orientation.z,
-					 local_pose_msg.pose.pose.orientation.w]
-
-		self.curr_orientation = tf.transformations.euler_from_quaternion(quaternion)    
-
-	def findLIS(A, n):
+def findLIS(A, n):
 		check = [] 
 		hash = dict() 
 
@@ -92,6 +45,57 @@ class Survey(Helper):
 
 		return check
 
+class Survey(Helper):
+	def __init__(self):
+		self.curr_position = np.zeros(3)
+		self.curr_orientation = np.zeros(3)
+		self.init_pose = None
+		self.pc2_arr = None
+		self.listener = tf.TransformListener()
+
+
+			 
+		rospy.Subscriber('/mavros/global_position/local', Odometry, self.positionCallback)
+			# dirn_topic = '/target_vector'
+			# self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
+
+		rospy.Subscriber('/depth_camera/depth/image_raw', Image, self.ImageCallback)
+		rospy.Subscriber("/safesearch/start", Int16, self.start_survey_callback) 
+
+		self.drone_move_pub = rospy.Publisher('/safesearch/teleop',teleopData,queue_size = 1)  
+		self.safesearch_complete_pub = rospy.Publisher('/safesearch/complete',Int16 ,queue_size=1)
+
+		self.survey_flag = 0
+		self.indicator =  0
+		self.safesearch_complete_flag = Int16()
+		self.defineParameters()
+
+		self.rate = rospy.Rate(10)
+
+		self.new_waypoint_found = bool()
+		self.target = None
+		self.intensity_at_target = None
+		self.target_array = [None]*19
+		self.target_intensity_array = [None]*19
+		#self.target_xyz_array = np.zeros(18)#shape 18 values
+		self.THRESHOLD_INTENSITY = 0.7 * np.ones(len(self.target_intensity_array))#tunable parameter
+		self.best_intensity_index = None
+		self.best_yaw_angle = None
+		self.direction = None
+
+	def positionCallback(self, local_pose_msg):
+		self.curr_position = [local_pose_msg.pose.pose.position.x,
+							local_pose_msg.pose.pose.position.y,
+							local_pose_msg.pose.pose.position.z]
+		quaternion = [local_pose_msg.pose.pose.orientation.x,
+					 local_pose_msg.pose.pose.orientation.y,
+					 local_pose_msg.pose.pose.orientation.z,
+					 local_pose_msg.pose.pose.orientation.w]
+
+		self.curr_orientation = tf.transformations.euler_from_quaternion(quaternion)    
+
+	
+
 
 	def ImageCallback(self, img_msg):
 		bridge = CvBridge()
@@ -110,9 +114,9 @@ class Survey(Helper):
 		penalized_cv_img = self.penalizeObstacleProximity(cleaned_cv_img)
 		# collision_cv_img = self.collision_avoidance(cleaned_cv_img)
 		self.target, _ = self.findTarget(penalized_cv_img, cleaned_cv_img)
-		print("target pixel" , self.target)
+		#print("target pixel" , self.target)
 		self.intensity_at_target = penalized_cv_img[self.target[0],self.target[1]]
-		print("intensity_at_target pixel",self.intensity_at_target)
+		#print("intensity_at_target pixel",self.intensity_at_target)
 		dest_cv_img = cv2.circle(penalized_cv_img, (self.target[1],self.target[0]), 20, 0, -1)
 		dest_cv_img = cv2.circle(penalized_cv_img, (self.target[1],self.target[0]), 10, 1, -1)
 		cv2.imshow("destination img", dest_cv_img)
@@ -121,10 +125,10 @@ class Survey(Helper):
 		return self.target 
 
 	def find_good_waypoint(self):
-		good_intensities = self.target_intensity_array >= self.THRESHOLD_INTENSITY
+		good_intensities = np.array(self.target_intensity_array >= self.THRESHOLD_INTENSITY)
 		idx_good_intensities = np.where(good_intensities == 1)
+		
 		if len(idx_good_intensities)>0:
-
 			idx_good_intensities=np.squeeze(idx_good_intensities)
 			n = len(idx_good_intensities)
 			arr = findLIS(idx_good_intensities, n)
@@ -139,6 +143,9 @@ class Survey(Helper):
 							final.append(check2[i])
 
 			print(final)
+			self.best_intensity_index = np.median(final)
+			self.best_yaw_angle = -1 * (self.direction) * (18 - self.best_intensity_index) * 10
+
 			return 1
 		
 		else:   
@@ -158,6 +165,7 @@ class Survey(Helper):
 		print("height reached" , h)
 
 	def scan_using_yaw(self, initial_angle , direction):
+		self.direction = direction
 		yaw_command = teleopData()
 		yaw_command.decision = 5
 		yaw_command.delta = initial_angle
@@ -168,19 +176,19 @@ class Survey(Helper):
 			yaw_command.delta = 10 * direction
 			self.drone_move_pub.publish(yaw_command)
 			time.sleep(3)
-			print("yaw",(initial_angle+ (i*10)))
+			print("yaw",(initial_angle+ ((i)*10)))
 			self.target_array[i] = self.target.copy()
-			print("target_array", self.target_array)
+			#print("target_array", self.target_array)
 			self.target_intensity_array[i] = self.intensity_at_target
-			print("yaw completed", self.target_intensity_array)  
+			#print("yaw completed", self.target_intensity_array)  
 		
 
-	def start_surveil_callback(self,msg):
-		self.surveil_flag = msg.data
+	def start_survey_callback(self,msg):
+		self.survey_flag = msg.data
 
-		if (self.surveil_flag == 1 and self.indicator == 0):
+		if (self.survey_flag == 1 and self.indicator == 0):
 			self.indicator = 1
-			self.go_to_height(2.5)
+			#self.go_to_height(2.5)
 			self.scan_using_yaw(-90 , 1)
 			if not(self.find_good_waypoint()):
 				self.go_to_height(4)
@@ -193,6 +201,14 @@ class Survey(Helper):
 					#self.emergency()  #to have rtl like function
 		else:
 			print("FOUND NICE WAYPOINT")
+			final_yaw_command = teleopData()
+			final_yaw_command.decision = 5
+			final_yaw_command.delta = self.best_yaw_angle
+			self.drone_move_pub.publish(final_yaw_command)
+			time.sleep(6)
+			self.indicator = 0
+			self.safesearch_complete_flag.data = 1
+			self.safesearch_complete_pub.publish(self.safesearch_complete_flag)
 
 	
 
