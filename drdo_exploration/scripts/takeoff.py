@@ -82,6 +82,8 @@ def setTakeoffMode():
         response = takeoffService(altitude = 2.5, latitude = 0, longitude = 0, min_pitch = 0, yaw = 0)
         # print("entering")
         takeoff = response.success
+        if takeoff:
+        	rospy.signal_shutdown("Hehe")
         # print("Takeoff:", takeoff)
         # takeoff=1
     except rospy.ServiceException, e:

@@ -98,18 +98,20 @@ class moveCopter:
 				if (self.flag):				
 					print("Aruco Marker detected!")
 					print("Aligning with Aruco Marker")
-					Delta = self.distance/2000
+					Delta = self.distance/500
 
 					pose_msg = PoseStamped()
 					pose_msg.pose.position.x = self.x_pose + (self.cX-320.0)*Delta   
 					pose_msg.pose.position.y = self.y_pose - (self.cY-240.0)*Delta  
 					pose_msg.pose.position.z = self.z_pose
+					pose_msg.pose.orientation = self.msgp.pose.orientation
 
 					self.pub_set_point_local.publish(pose_msg)
 					if (self.distance<50):
 						print("Landing")
 						self.setLandMode()
 				else:
+					print("moveTOtarget")
 					self.move_to_target()
 
 		def move_to_target(self): 

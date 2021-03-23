@@ -34,6 +34,7 @@ def callback_opencv(data):
 	aruco.cY = 0.0
 	aruco.distance = 0.0
 
+
 	if ids is None: ##If no marker is detected
 		print("FINDING MARKERS!!!")
 		cv2.imshow("frame",img)
@@ -42,15 +43,10 @@ def callback_opencv(data):
 	else:
 		a = np.where(ids==0)  #tuple containing index of the aruco with id zero.
 		if a[0].size==0:
-			print("2")
 			cv2.imshow("frame",img)
 			cv2.waitKey(3)
 			aruco.flag = 0
 		else:
-			print("2")
-			cv2.imshow("frame",img)
-			cv2.waitKey(3)
-			
 			print("Found markers. Moving towards it")
 			corners = corners[a[0][0]]
 			(topLeft, topRight, bottomRight, bottomLeft) = corners[0]
@@ -74,9 +70,9 @@ def callback_opencv(data):
 			cv2.imshow("frame",img)
 			cv2.waitKey(3)
 
-			# edge_distance = sqrt( (topLeft[0]-topRight[0])**2 + (topLeft[0]-topRight[0])**2 )//2
+			#edge_distance = sqrt( (topLeft[0]-topRight[0])**2 + (topLeft[0]-topRight[0])**2 )//2
 			distance = 	sqrt( (cX-img.shape[1]//2)**2 + (cY-img.shape[0]//2)**2 )
-
+			print(distance)
 			aruco.flag = 1
 			aruco.cX = cX
 			aruco.cY = cY
