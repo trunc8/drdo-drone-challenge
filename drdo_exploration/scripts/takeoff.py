@@ -107,7 +107,7 @@ if __name__ == '__main__':
             setGuidedMode()
             setArm()
             setTakeoffMode()
-            rospy.sleep(0.5)
+            rospy.sleep(1)
         print("SUCCESS!!")
         # rospy.spin()
 
