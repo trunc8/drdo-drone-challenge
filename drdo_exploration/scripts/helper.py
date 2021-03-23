@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 import random
 import scipy.ndimage
-
+from numpy.lib.stride_tricks import as_strided
 
 import rospy
 from geometry_msgs.msg import PointStamped, Point
@@ -45,14 +45,15 @@ class Helper:
     1-1/(1+(d/x)^2n)
     '''
 
-    KERNEL_SIZE = 300
-    DECAY_RATE = 6
+    KERNEL_SIZE = 180
+    DECAY_RATE = 5
     DECAY_CUTOFF = 100
+    INTENSITY = 2
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
     decay_sequence = 1/(1+decay_sequence)
-    decay_sequence = 1 - decay_sequence
+    decay_sequence = INTENSITY*(1 - decay_sequence)
     
 
     self.kernel_right = np.concatenate((np.zeros(KERNEL_SIZE//2),
@@ -62,7 +63,7 @@ class Helper:
 
     KERNEL_SIZE = 200
     DECAY_RATE = 10
-    DECAY_CUTOFF = 50
+    DECAY_CUTOFF = 100
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
@@ -73,8 +74,6 @@ class Helper:
                                         decay_sequence))
     self.kernel_top = self.kernel_bottom[::-1]
 
-
-
     self.POINTCLOUD_CUTOFF = 10
 
     # Penalization tunables
@@ -83,10 +82,13 @@ class Helper:
     self.K_cam = 1e-1
     self.Z_REF = 2.5
     self.K_altitude = 1
-
+    self.DILATION_FACTOR = 5
+    self.Z_PEN_FACTOR = 1e-2
+    self.Y_PEN_FACTOR = 1e-2
 
     # Danger distance threshold
-    self.DANGER_DISTANCE = 2
+    self.DANGER_DISTANCE = 0.1
+    self.THRESHOLD_PERCENTAGE = 0.01
 
 
   def filterSkyGround(self, cleaned_cv_img):
@@ -99,7 +101,7 @@ class Helper:
     FOCAL_LENGTH = 554.25 # From camera_info
     LOWER_LIMIT = 0.5
     UPPER_LIMIT= 4.5
-    IMAGE_PLANE_DISTANCE = 10
+    IMAGE_PLANE_DISTANCE = self.POINTCLOUD_CUTOFF
     '''
     Half height is the original height in meters when the distance is 10m.
     '''
@@ -136,7 +138,7 @@ class Helper:
     target_px = np.array([h-height//2, w-width//2])
     
     FOCAL_LENGTH = 554.25 # From camera_info
-    IMAGE_PLANE_DISTANCE = 10
+    IMAGE_PLANE_DISTANCE = self.POINTCLOUD_CUTOFF
     xp = (IMAGE_PLANE_DISTANCE/FOCAL_LENGTH)*target_px[1]
     yp = (IMAGE_PLANE_DISTANCE/FOCAL_LENGTH)*target_px[0]
     zp = IMAGE_PLANE_DISTANCE
@@ -179,13 +181,57 @@ class Helper:
     # print("Target Depth: ", self.POINTCLOUD_CUTOFF*cleaned_cv_img[target[0],
                     # target[1]])
     danger_flag = 0
-    if self.POINTCLOUD_CUTOFF*cleaned_cv_img[target[0],
-                    target[1]] < self.DANGER_DISTANCE:
+    thresholded_img = 1*(penalized_cv_img > 1.*self.DANGER_DISTANCE/self.POINTCLOUD_CUTOFF)
+    if np.count_nonzero(thresholded_img) < self.THRESHOLD_PERCENTAGE*np.prod(penalized_cv_img.shape) :
       danger_flag = 1
       print("DANGERRRRRRR")
     
     return target, danger_flag
 
+  
+  def calculatePenalty(self, cleaned_cv_img):
+    
+    # Apply penalty for distance
+    # penalized_cv_img = penalizeObstacleProximity(cleaned_cv_img) # Using edge-extension visor
+    penalized_cv_img = self.dilateImage(cleaned_cv_img) # Using grayscale dilation
+    
+    # Apply penalty for moving away from centerline
+    # penalized_cv_img = penalized_cv_img - self.img_y_penalty()
+
+    # Apply penalty for being off midlevel in world height
+    # penalized_cv_img = penalized_cv_img - self.Z_PEN_FACTOR*self.world_z_penalty()
+    
+    return penalized_cv_img
+  
+  
+  def img_y_penalty(self):
+    #---------------------------------------------------------#
+    ## Penalize distance from horizontal centerline
+
+    y_dist_penalty = np.arange(480) - 479/2.
+    y_dist_penalty = np.abs(y_dist_penalty)
+    y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
+    # print(y_dist_penalty.shape)
+    
+    
+    y_dist_penalty = self.K_cam*y_dist_penalty/(np.max(y_dist_penalty))
+    # penalized_cv_img = penalized_cv_img - y_dist_penalty
+    # penalized_cv_img.clip(min=0)
+    return y_dist_penalty
+  
+  def world_z_penalty(self):
+    #---------------------------------------------------------#
+    ## Penalize deviation of z-coordinate from self.Z_REF    
+
+    err = (self.curr_position[2]-self.Z_REF)/self.Z_REF
+    z_penalty = self.K_altitude*np.arange(480)*np.abs(err)/480
+    if err>0:
+      z_penalty = z_penalty[::-1]
+
+    z_penalty = np.matlib.repmat(z_penalty,640,1).T
+    return z_penalty
+    
+  
   def penalizeObstacleProximity(self, cleaned_cv_img):
     penalized_cv_img = cleaned_cv_img.copy()
     
@@ -216,9 +262,7 @@ class Helper:
 
     left_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
           weights= self.kernel_left, mode='constant', cval=0, axis=1)
-
-
-
+   
     '''
     Calculate vertical differences only finding decreasing brightnesses
     ----------
@@ -232,8 +276,6 @@ class Helper:
     bottom_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(bottom_horizontal_mask,
           weights= self.kernel_bottom, mode='constant', cval=0, axis=1)
 
-
-
     '''
     Calculate vertical differences only finding increasing brightnesses
     ----------
@@ -246,50 +288,7 @@ class Helper:
 
     top_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(top_horizontal_mask,
           weights= self.kernel_top, mode='constant', cval=0, axis=1)
-    
 
-
-
-
-    # penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
-    # penalized_cv_img[:,1:] = penalized_cv_img[:,1:] - left_vertical_penalty
-    # penalized_cv_img = penalized_cv_img.clip(min=0)
-
-    # penalized_cv_img[:,0] = np.zeros(480)
-    # penalized_cv_img[:,-1] = np.zeros(480)
-    # print(penalized_cv_img[0,400:])
-    # cv2.imshow("Penalized image", penalized_cv_img)
-    # cv2.waitKey(3)
-
-
-    #---------------------------------------------------------#
-    ## Penalize distance from horizontal centerline
-
-    y_dist_penalty = np.arange(480) - 479/2.
-    y_dist_penalty = np.abs(y_dist_penalty)
-    y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
-    # print(y_dist_penalty.shape)
-    
-    
-    y_dist_penalty = self.K_cam*y_dist_penalty/(np.max(y_dist_penalty))
-    # penalized_cv_img = penalized_cv_img - y_dist_penalty
-    # penalized_cv_img.clip(min=0)
-
-    #---------------------------------------------------------#
-    ## Penalize deviation of z-coordinate from self.Z_REF    
-
-    err = (self.curr_position[2]-self.Z_REF)/self.Z_REF
-    z_penalty = self.K_altitude*np.arange(480)*np.abs(err)/480
-    if err>0:
-      z_penalty = z_penalty[::-1]
-
-    z_penalty = np.matlib.repmat(z_penalty,640,1).T
-    # penalized_cv_img = penalized_cv_img - z_penalty
-    # penalized_cv_img.clip(min=0)
-
-
-    # cv2.imshow("Y dist penalty", penalized_cv_img)
-    # cv2.waitKey(3)
 
     penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
     penalized_cv_img[:,1:] = penalized_cv_img[:,1:] - left_vertical_penalty
@@ -300,19 +299,54 @@ class Helper:
     penalized_cv_img[1:,:] = penalized_cv_img[1:,:] - top_horizontal_penalty
     penalized_cv_img[0,:] = np.zeros(640)
     penalized_cv_img[-1,:] = np.zeros(640)
-
-
-
-
-    # penalized_cv_img = penalized_cv_img - y_dist_penalty
-
-    # penalized_cv_img = penalized_cv_img - z_penalty
+    
 
     penalized_cv_img.clip(min=0)
 
-
-
     return penalized_cv_img
+  
 
+  def dilateImage(self, cleaned_cv_img):
+    kernel_size = (25,51) 
+    img = self.pool2d(cleaned_cv_img, kernel_size, 
+                  stride=1, padding=0, pool_mode='min')
+    dilated_img = np.zeros(cleaned_cv_img.shape)
+    dilated_img[12:-12, 25:-25] = img
+    
+    #cv2.imshow("Cleaned image", cleaned_cv_img)
+    #cv2.imshow("Pooled image", img)
+    #cv2.imshow("dialted_img",dilated_img)
+    #cv2.waitKey(3)
+
+    return dilated_img
 
   
+  def pool2d(self, A, kernel_size, stride, padding, pool_mode='min'):
+    '''
+    2D Pooling
+
+    Parameters:
+        A: input 2D array
+        kernel_size: tuple, the size of the window
+        stride: int, the stride of the window
+        padding: int, implicit zero paddings on both sides of the input
+        pool_mode: string, 'max' or 'avg'
+    '''
+    # Padding
+    A = np.pad(A, padding, mode='constant')
+
+    # Window view of A
+    output_shape = ((A.shape[0] - kernel_size[0])//stride + 1,
+                    (A.shape[1] - kernel_size[1])//stride + 1)
+    A_w = as_strided(A, shape = output_shape + kernel_size, 
+                        strides = (stride*A.strides[0],
+                                   stride*A.strides[1]) + A.strides)
+    A_w = A_w.reshape(-1, *kernel_size)
+
+    # Return the result of pooling
+    if pool_mode == 'max':
+      return A_w.max(axis=(1,2)).reshape(output_shape)
+    elif pool_mode == 'avg':
+      return A_w.mean(axis=(1,2)).reshape(output_shape)
+    elif pool_mode == 'min':
+      return A_w.min(axis=(1,2)).reshape(output_shape)

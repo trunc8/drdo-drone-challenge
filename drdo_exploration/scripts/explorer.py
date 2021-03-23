@@ -85,7 +85,7 @@ class Exploration(Helper):
     cleaned_cv_img = self.filterSkyGround(cleaned_cv_img)
 
 
-    penalized_cv_img = self.penalizeObstacleProximity(cleaned_cv_img)
+    penalized_cv_img = self.calculatePenalty(cleaned_cv_img)
 
     #image_operation to apply colllision avoidance with drone
 
