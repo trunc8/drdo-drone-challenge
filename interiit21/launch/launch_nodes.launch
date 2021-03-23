@@ -1,9 +1,12 @@
 <launch>
 
-  <node pkg="drdo_exploration" type="explorer.py" name="explorer_node"/>
+  <node pkg="drdo_exploration" type="explorer.py" name="explorer_node" output="screen"/>
 	<node pkg="drdo_exploration" type="move_to_targ.py" name="navigator_node"/>
   <node pkg="drdo_exploration" type="scanner.py" name="aruco_lander"/>
-	<!-- <node pkg="drone_path_planner" type="movement.py" name="land_node"/> -->
+
+  <node pkg="drone_path_planner" type="safe_move.py" name="safety_searcher"/>
+  <node pkg="drdo_exploration" type="survey.py" name="survey"/>
+	<node pkg="drone_path_planner" type="movement.py" name="land_node" output="screen"/>
 	<!-- <node pkg="aruco_detector" type="detectAruco.py" name="ar_node"/> -->
 
 </launch>

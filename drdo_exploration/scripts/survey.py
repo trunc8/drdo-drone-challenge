@@ -117,11 +117,11 @@ class Survey(Helper):
 		#print("target pixel" , self.target)
 		self.intensity_at_target = penalized_cv_img[self.target[0],self.target[1]]
 		#print("intensity_at_target pixel",self.intensity_at_target)
-		dest_cv_img = cv2.circle(penalized_cv_img, (self.target[1],self.target[0]), 20, 0, -1)
-		dest_cv_img = cv2.circle(penalized_cv_img, (self.target[1],self.target[0]), 10, 1, -1)
-		cv2.imshow("destination img", dest_cv_img)
+		# dest_cv_img = cv2.circle(penalized_cv_img, (self.target[1],self.target[0]), 20, 0, -1)
+		# dest_cv_img = cv2.circle(penalized_cv_img, (self.target[1],self.target[0]), 10, 1, -1)
+		# cv2.imshow("destination img", dest_cv_img)
 
-		cv2.waitKey(1)
+		# cv2.waitKey(1)
 		return self.target 
 
 	def find_good_waypoint(self):
