@@ -124,7 +124,7 @@ class navigation:
         
 
 if __name__ == '__main__':
-  rospy.init_node('navigator_node')
+  rospy.init_node('aruco_navigator_node')
   rospy.loginfo("navigator_node created")
   try:
     navigation_obj = navigation()  

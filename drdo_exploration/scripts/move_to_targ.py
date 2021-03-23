@@ -38,7 +38,8 @@ class moveCopter:
         self.targ_z=0.0
         self.rel_yaw = 0.0
 
-        rospy.init_node('navigator_node')
+        rospy.init_node('exlporer_navigator_node')
+        rospy.loginfo("explorer_navigator_node created")
         self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=10)
         self.sub_gps=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback)
         self.flag_to_stop = rospy.Subscriber("/stop_exploring_flag", Int16, self.stop_moving_callback)

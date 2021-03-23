@@ -89,7 +89,7 @@ class navigation:
         
 
 if __name__ == '__main__':
-  rospy.init_node('surviel_navigator')
+  rospy.init_node('survey_navigator')
   rospy.loginfo("surveil_node created")
   try:
     navigation_obj = navigation()  
