@@ -53,6 +53,7 @@ add_message_files(
   FILES
   frame.msg
   direction.msg
+  aruco_detect.msg
 )
 
 ## Generate services in the 'srv' folder
