@@ -78,7 +78,7 @@ class Survey(Helper):
 		self.target_array = [None]*19
 		self.target_intensity_array = [None]*19
 		#self.target_xyz_array = np.zeros(18)#shape 18 values
-		self.THRESHOLD_INTENSITY = 0.7 * np.ones(len(self.target_intensity_array))#tunable parameter
+		self.THRESHOLD_INTENSITY = 0.4 * np.ones(len(self.target_intensity_array))#tunable parameter
 		self.best_intensity_index = None
 		self.best_yaw_angle = None
 		self.direction = None
@@ -127,10 +127,16 @@ class Survey(Helper):
 	def find_good_waypoint(self):
 		good_intensities = np.array(self.target_intensity_array >= self.THRESHOLD_INTENSITY)
 		idx_good_intensities = np.where(good_intensities == 1)
-		
-		if len(idx_good_intensities)>0:
-			idx_good_intensities=np.squeeze(idx_good_intensities)
+		print("idx_good_intensities1",idx_good_intensities)
+		print("len if idx_good_int",len(np.squeeze(idx_good_intensities)))
+
+		if len(np.squeeze(idx_good_intensities))>0:
+
+			print("idx_good_intensities2",idx_good_intensities)
+			idx_good_intensities = np.squeeze(idx_good_intensities)
 			n = len(idx_good_intensities)
+
+			print("idx_good_intensities3",idx_good_intensities)
 			arr = findLIS(idx_good_intensities, n)
 			check2.append(arr)
 			for i in range(1,n-1):
@@ -178,9 +184,9 @@ class Survey(Helper):
 			time.sleep(3)
 			print("yaw",(initial_angle+ ((i)*10)))
 			self.target_array[i] = self.target.copy()
-			#print("target_array", self.target_array)
+			print("target_array", self.target_array)
 			self.target_intensity_array[i] = self.intensity_at_target
-			#print("yaw completed", self.target_intensity_array)  
+			print("target_intensity_array", self.target_intensity_array)  
 		
 
 	def start_survey_callback(self,msg):
@@ -188,7 +194,7 @@ class Survey(Helper):
 
 		if (self.survey_flag == 1 and self.indicator == 0):
 			self.indicator = 1
-			#self.go_to_height(2.5)
+			self.go_to_height(2.5)
 			self.scan_using_yaw(-90 , 1)
 			if not(self.find_good_waypoint()):
 				self.go_to_height(4)
@@ -199,16 +205,16 @@ class Survey(Helper):
 			# if not(self.find_good_waypoint()):
 
 					#self.emergency()  #to have rtl like function
-		else:
-			print("FOUND NICE WAYPOINT")
-			final_yaw_command = teleopData()
-			final_yaw_command.decision = 5
-			final_yaw_command.delta = self.best_yaw_angle
-			self.drone_move_pub.publish(final_yaw_command)
-			time.sleep(6)
-			self.indicator = 0
-			self.safesearch_complete_flag.data = 1
-			self.safesearch_complete_pub.publish(self.safesearch_complete_flag)
+			else:
+				print("FOUND NICE WAYPOINT")
+				final_yaw_command = teleopData()
+				final_yaw_command.decision = 5
+				final_yaw_command.delta = self.best_yaw_angle
+				self.drone_move_pub.publish(final_yaw_command)
+				time.sleep(6)
+				self.indicator = 0
+				self.safesearch_complete_flag.data = 1
+				self.safesearch_complete_pub.publish(self.safesearch_complete_flag)
 
 	
 
