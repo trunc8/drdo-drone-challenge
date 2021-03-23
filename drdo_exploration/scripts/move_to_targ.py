@@ -13,7 +13,7 @@ from math import atan2, cos, sin
 from nav_msgs.msg import *
 from drdo_exploration.msg import direction #Here direction is the message containing target co-ordinates.
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
-from std_msgs.msg import String
+from std_msgs.msg import Int16
 #from geometry_msgs import PoseStamped
 
 import numpy as np
@@ -41,7 +41,7 @@ class moveCopter:
         rospy.init_node('navigator_node')
         self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=10)
         self.sub_gps=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback)
-        self.flag_to_stop = rospy.Subscriber("/stop_exploring_flag", String, self.stop_moving_callback)
+        self.flag_to_stop = rospy.Subscriber("/stop_exploring_flag", Int16, self.stop_moving_callback)
         self.sub_targ_vector=rospy.Subscriber("/target_vector",direction, self.targ_vector_callback)
         self.msgp=PoseStamped()
         self.rate=rospy.Rate(1)
@@ -49,6 +49,8 @@ class moveCopter:
         self.e_prev = 0.0
         self.t_prev = 0.0
         self.I = 0.0
+
+        
       
 
 
@@ -78,7 +80,7 @@ class moveCopter:
         self.targ_y=msg.vec_y
         self.targ_z=msg.vec_z
         self.rel_yaw = math.atan2(self.targ_y,self.targ_x)
-        #self.move_to_target()
+        # self.move_to_target()
         # self.rate.sleep()
 
 
@@ -107,8 +109,8 @@ class moveCopter:
         # print(self.msgp.pose.position.x, self.msgp.pose.position.y, self.msgp.pose.position.z)
 
     def stop_moving_callback(self,msg):
-        a= msg.data
-        if(a=="Keep looking"):
+        flag_stop = msg.data
+        if not flag_stop:
             self.move_to_target()
         else:
             rospy.signal_shutdown("Open Movement.py")
@@ -116,22 +118,24 @@ class moveCopter:
 
     def yawPID(self):
     
-      Kp = 0.8
-      Kd = 0.1
+      Kp = 0.6
+      Kd = 0
       Ki = 0
+      ERROR_THRESHOLD_FOR_INTEGRATOR = 0.2
+      WINDUP_THRESHOLD = 0.2
 
       e = self.rel_yaw
       #print(e*180/3.14)
       dt = 1
 
       P = Kp*e
-      I = self.I + Ki*e*(dt)
+      if abs(e) < ERROR_THRESHOLD_FOR_INTEGRATOR and abs(self.I) < WINDUP_THRESHOLD:
+        self.I = self.I + Ki*e*(dt)
       D = Kd*(e - self.e_prev)/(dt)
 
-      Yaw = self.yaw + P + I + D
+      Yaw = self.yaw + P + self.I + D
 
       self.e_prev = e
-      self.I = I
       return Yaw
         
 

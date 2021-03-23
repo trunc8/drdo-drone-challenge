@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from math import sqrt
 from drone_path_planner.msg import teleopData
 from mavros_msgs.srv import SetMode
-from std_msgs.msg import String
+from std_msgs.msg import Int16
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
@@ -48,10 +48,12 @@ def callback_opencv(data):
 	cX = 0
 	cY = 0
 
+	cv2.circle(img,(img.shape[1]//2,img.shape[0]//2),4,(255,0,0),-1)
+
 	if ids is None: ##If no marker is detected
 		print("FINDING MARKERS!!!")
-		flag_stop = String()
-		flag_stop.data = "Keep looking"
+		flag_stop = Int16()
+		flag_stop.data = 0
 		pub_stop_explore.publish(flag_stop)
 		cv2.imshow("frame",img)
 		cv2.waitKey(3)
@@ -59,15 +61,15 @@ def callback_opencv(data):
 		a = np.where(ids==0)  #tuple containing index of the aruco with id zero.
 		if a[0].size==0:
 			print("2")
-			flag_stop = String()
-			flag_stop.data = "Keep looking"
+			flag_stop = Int16()
+			flag_stop.data = 0
 			pub_stop_explore.publish(flag_stop)
 			cv2.imshow("frame",img)
 			cv2.waitKey(3)
 		else:
 			print("2")
-			flag_stop = String()
-			flag_stop.data = "Stop looking"
+			flag_stop = Int16()
+			flag_stop.data = 1
 			pub_stop_explore.publish(flag_stop)
 			cv2.imshow("frame",img)
 			cv2.waitKey(3)
@@ -90,7 +92,7 @@ def callback_opencv(data):
 			cY = int((topLeft[1] + bottomRight[1]) / 2.0)
 
 			cv2.circle(img, (cX, cY), 4, (0,255,0), -1)
-			cv2.circle(img,(img.shape[1]//2,img.shape[0]//2),4,(255,0,0),-1)
+			# cv2.circle(img,(img.shape[1]//2,img.shape[0]//2),4,(255,0,0),-1)
 
 			cv2.imshow("frame",img)
 			cv2.waitKey(3)
@@ -151,7 +153,7 @@ if __name__ == '__main__':
 	 rospy.init_node('listener', anonymous=True)
 
 	 pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=10)
-	 pub_stop_explore = rospy.Publisher("/stop_exploring_flag", String,queue_size=10)
+	 pub_stop_explore = rospy.Publisher("/stop_exploring_flag", Int16,queue_size=10)
 
 	 sub_gps=rospy.Subscriber("/mavros/global_position/local",Odometry, gps_data_callback)
 	 rospy.Subscriber("/camera/color/image_raw/", Image, callback_opencv)
