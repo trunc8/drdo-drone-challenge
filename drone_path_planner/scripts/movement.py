@@ -3,7 +3,7 @@ import rospy
 ##from hector_uav_msgs.msg import PoseActionGoal
 ##from geometry_msgs import PoseStamped
 from time import sleep
-from tf.transformations import euler_from_quaternion
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from geometry_msgs.msg import Point,Twist
 from geometry_msgs.msg import PoseStamped
 from math import atan2, cos, sin
@@ -19,11 +19,11 @@ def setStabilizeMode():
         rate2=rospy.Rate(1)
         while not isModeChanged_guided :            
             flightModeService = rospy.ServiceProxy('/mavros/set_mode',SetMode)
-            isModeChanged = flightModeService(custom_mode='STABILIZE') #return true or false
-            isModeChanged_guided = flightModeService(custom_mode='GUIDED') #return true or false
+            isModeChanged_guided = flightModeService(custom_mode='LAND') #return true or false
+            rospy.loginfo("Flight landing succesfull!!")
             rate2.sleep()
     except rospy.ServiceException:
-        print "service set_mode call failed. GUIDED Mode could not be set. Check that GPS is enabled"
+        print "service set_mode call failed. LAND Mode could not be set. Check that GPS is enabled"
 def setArm():
     rospy.wait_for_service('/mavros/cmd/arming')    
     try:
@@ -84,6 +84,16 @@ class navigation:
         self.msgp.pose.position.z=self.z_pose
         self.msgp.pose.position.x=self.x_pose+self.delta*sin(self.yaw)
         self.msgp.pose.position.y=self.y_pose-self.delta*cos(self.yaw)
+    def move_yaw(self) :
+        self.msgp.pose.position.z=self.z_pose
+        self.msgp.pose.position.x=self.x_pose
+        self.msgp.pose.position.y=self.y_pose
+        self.yaw=self.yaw+self.delta
+        q=quaternion_from_euler(self.roll ,self.pitch ,self.yaw)
+        self.msgp.pose.orientation.x = q[0]
+        self.msgp.pose.orientation.y = q[1]
+        self.msgp.pose.orientation.z = q[2]
+        self.msgp.pose.orientation.w = q[3]
     def set_z(self):
         self.msgp.pose.position.x=self.x_pose
         self.msgp.pose.position.y=self.y_pose
@@ -106,6 +116,10 @@ class navigation:
                 self.set_z()
                 self.pub_set_point_local.publish(self.msgp)
                 self.decision=0
+            elif (self.decision==5) :
+                self.move_yaw()
+                self.pub_set_point_local.publish(self.msgp)
+                self.decision=0
             self.rate.sleep()
         
 
@@ -114,7 +128,7 @@ if __name__ == '__main__':
   rospy.loginfo("navigator_node created")
   try:
     navigation_obj = navigation()  
-    # setStabilizeMode()
+    #setStabilizeMode()
     # setArm()
     # setTakeoffMode()
     rate4=rospy.Rate(1000)
