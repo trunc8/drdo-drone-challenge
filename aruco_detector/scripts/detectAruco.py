@@ -22,10 +22,8 @@ from std_msgs.msg import Int16
 
 first1 = True
 first2 = True
-first3 = True
 counter1 = 1
 flag_zero_detected = False
-close = False
 
 def loadImages(data):
 
@@ -35,10 +33,8 @@ def loadImages(data):
      index = 0
      global first2
      global first1
-     global first3
      global counter1
      global flag_zero_detected
-     global close
 
      counter1 = counter1%300
      counter1 += 1 #To count how many number of times this function is called
@@ -57,8 +53,7 @@ def loadImages(data):
      arucoParams = cv2.aruco.DetectorParameters_create()
      imgMat = imgMat.astype(np.uint8)
      # imgMat = cv2.GaussianBlur(imgMat,(5,5),0)
-     if close:
-         imgMat = cv2.medianBlur(imgMat,3)
+     # imgMat = cv2.medianBlur(imgMat,3)
      (corners, ids, rejected) = cv2.aruco.detectMarkers(imgMat, arucoDict,parameters=arucoParams)
 
 
@@ -99,33 +94,24 @@ def loadImages(data):
           
                #Get the scaled distance to the center of the aruco marker
                lengthOfEdgeInPixel = math.sqrt((corners[markerIndex][0][0][0] - corners[markerIndex][0][1][0])**2 + (corners[markerIndex][0][0][1] - corners[markerIndex][0][1][1])**2)
-               scaleFactor = 0.27/lengthOfEdgeInPixel
+               scaleFactor = 0.32/lengthOfEdgeInPixel
                thresholdFactor = 0.1778/lengthOfEdgeInPixel
                translationVectorInPixels = [(center[0] - 320),(center[1] - 240)] #Translation in terms of pixels
                translationVectorDrone = [-scaleFactor*translationVectorInPixels[1],scaleFactor*translationVectorInPixels[0]] # Actual translation distance
 
                ##Optimize distance in X
-               if((abs(translationVectorInPixels[0]) > 0.1/thresholdFactor) and counter1%8 == 0 and abs(translationVectorInPixels[0]) > abs(translationVectorInPixels[1])):
+               if((abs(translationVectorInPixels[0]) > 0.1/thresholdFactor) and counter1%9 == 0 and abs(translationVectorInPixels[0]) > abs(translationVectorInPixels[1])):
                     msg.decision = 2
                     msg.delta = translationVectorDrone[1]
                     print(translationVectorDrone[1])
                     pub.publish(msg)
                
                ##Optimize distance in y
-               elif((abs(translationVectorInPixels[1]) > 0.1/thresholdFactor) and counter1%8 == 0):
+               elif((abs(translationVectorInPixels[1]) > 0.1/thresholdFactor) and counter1%9 == 0):
                     msg.decision = 1
                     msg.delta = translationVectorDrone[0]
                     print(translationVectorDrone[0])
                     pub.publish(msg)
-
-               ##Once both x and y get optimized, decrease the altitude
-               elif((abs(translationVectorInPixels[0]) < 0.5/thresholdFactor) and (abs(translationVectorInPixels[1]) < 0.5/thresholdFactor) and first3):
-                    msg.decision = 4
-                    msg.delta = 2
-                    pub.publish(msg)
-                    print("ARUCO MARKER IS CLOSE")
-                    first3 = False
-                    close = True
                
                ##Once both x and y get optimized, decrease the altitude
                elif((abs(translationVectorInPixels[0]) < 0.1/thresholdFactor) and (abs(translationVectorInPixels[1]) < 0.1/thresholdFactor) and first1):
