@@ -3589,7 +3589,7 @@
       <include>
         <uri>model://drone_with_depth_camera</uri>
       </include>
-      <pose> 0.2 -10 0 0 0 1.57</pose>
+      <pose> 20 9 0 0 0 1.57</pose>
     </model>
 
     <model name="aruco">

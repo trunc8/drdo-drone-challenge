@@ -26,6 +26,7 @@ from helper import Helper
 class Exploration(Helper):
   def __init__(self):
 
+
     self.curr_position = np.zeros(3)
     self.curr_orientation = np.zeros(3)
     self.init_pose = None
@@ -39,11 +40,7 @@ class Exploration(Helper):
     dirn_topic = '/target_vector'
     self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
 
-    KERNEL_SIZE = 640
-    decay_sequence = np.ones(KERNEL_SIZE//2, dtype=float)/(1+np.arange(KERNEL_SIZE//2))
-    self.kernel_right = np.concatenate((np.zeros(KERNEL_SIZE//2),
-                                        decay_sequence))
-    self.kernel_left = self.kernel_right[::-1]
+    self.defineParameters()
 
 
   def positionCallback(self, local_pose_msg):
@@ -68,8 +65,7 @@ class Exploration(Helper):
       return
     
     cv_image_array = np.array(cv_img, dtype = np.dtype('f8'))
-    POINTCLOUD_CUTOFF = 10
-    cv_image_norm = cv_image_array/POINTCLOUD_CUTOFF
+    cv_image_norm = cv_image_array/self.POINTCLOUD_CUTOFF
 
     
 
@@ -84,14 +80,20 @@ class Exploration(Helper):
 
     #image_operation to apply colllision avoidance with drone
 
-    collision_cv_img = self.collision_avoidance(cleaned_cv_img)
+    # collision_cv_img = self.collision_avoidance(cleaned_cv_img)
     
 
 
     target = self.findTarget(penalized_cv_img)
 
-    #cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
-    #cv2.imshow("Penalized image", penalized_cv_img)
+    cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
+    cv2.circle(penalized_cv_img, (target[1],target[0]), 10, 1, -1)
+    cv2.imshow("Penalized image", penalized_cv_img)
+
+    # cv2.circle(collision_cv_img, (target[1],target[0]), 20, 0, -1)
+    # cv2.circle(collision_cv_img, (target[1],target[0]), 10, 1, -1)
+    # cv2.imshow("collision_cv_img" , collision_cv_img)
+    
     cv2.waitKey(3)
 
     ps = self.pixel_to_dirn(target[0],target[1])
@@ -103,7 +105,7 @@ class Exploration(Helper):
     dirn_msg.vec_y = dirn[1]
     dirn_msg.vec_z = dirn[2]
     
-    #print("%.2f %.2f %.2f"%(dirn[0], -dirn[1], -dirn[2]))
+    print("%.2f %.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
     
     self.pub.publish(dirn_msg)
 
@@ -117,7 +119,7 @@ class Exploration(Helper):
 
 if __name__ == '__main__':
   try:
-    rospy.init_node('pc2xyz_node')
+    rospy.init_node('explorer_node')
     exploration = Exploration()    
     rospy.spin()
   except rospy.ROSInterruptException:

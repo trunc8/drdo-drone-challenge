@@ -1,10 +1,9 @@
 #!/usr/bin/env python
-from __future__ import print_function
-
 import rospy
+
 import math
 ##from hector_uav_msgs.msg import PoseActionGoal
-##from geometry_msgs import PoseStamped
+
 from time import sleep
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from geometry_msgs.msg import Point,Twist
@@ -13,12 +12,89 @@ from math import atan2, cos, sin
 from nav_msgs.msg import *
 from drdo_exploration.msg import direction #Here direction is the message containing target co-ordinates.
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
-#from geometry_msgs import PoseStamped
+
+
+from std_msgs.msg import String
+from sensor_msgs.msg import NavSatFix
+from mavros_msgs.srv import *
+from geometry_msgs.msg import TwistStamped
 
 import numpy as np
 
+#global variable
+latitude =0.0
+longitude=0.0
+
+takeoff =0
+
+
+def setGuidedMode():
+    rospy.wait_for_service('/mavros/set_mode')
+    try:
+        flightModeService = rospy.ServiceProxy('/mavros/set_mode', mavros_msgs.srv.SetMode)
+        #http://wiki.ros.org/mavros/CustomModes for custom modes
+        isModeChanged = flightModeService(custom_mode='GUIDED') #return true or false
+    except rospy.ServiceException, e:
+        print "service set_mode call failed: %s. GUIDED Mode could not be set. Check that GPS is enabled"%e
+        
+def setStabilizeMode():
+    rospy.wait_for_service('/mavros/set_mode')
+    try:
+        flightModeService = rospy.ServiceProxy('/mavros/set_mode', mavros_msgs.srv.SetMode)
+        #http://wiki.ros.org/mavros/CustomModes for custom modes
+        isModeChanged = flightModeService(custom_mode='STABILIZE') #return true or false
+    except rospy.ServiceException, e:
+        print "service set_mode call failed: %s. GUIDED Mode could not be set. Check that GPS is enabled"%e
+
+def setLandMode():
+    rospy.wait_for_service('/mavros/cmd/land')
+    try:
+        landService = rospy.ServiceProxy('/mavros/cmd/land', mavros_msgs.srv.CommandTOL)
+        #http://wiki.ros.org/mavros/CustomModes for custom modes
+        isLanding = landService(altitude = 0, latitude = 0, longitude = 0, min_pitch = 0, yaw = 0)
+    except rospy.ServiceException, e:
+        print "service land call failed: %s. The vehicle cannot land "%e
+          
+def setArm():
+    rospy.wait_for_service('/mavros/cmd/arming')
+    try:
+        armService = rospy.ServiceProxy('/mavros/cmd/arming', mavros_msgs.srv.CommandBool)
+        armService(True)
+    except rospy.ServiceException, e:
+        print "Service arm call failed: %s"%e
+        
+def setDisarm():
+    rospy.wait_for_service('/mavros/cmd/arming')
+    try:
+        armService = rospy.ServiceProxy('/mavros/cmd/arming', mavros_msgs.srv.CommandBool)
+        armService(False)
+    except rospy.ServiceException, e:
+        print "Service arm call failed: %s"%e
+
+
+def setTakeoffMode():
+    rospy.wait_for_service('/mavros/cmd/takeoff')
+    try:
+        takeoffService = rospy.ServiceProxy('/mavros/cmd/takeoff', mavros_msgs.srv.CommandTOL) 
+        takeoffService(altitude = 2, latitude = 0, longitude = 0, min_pitch = 0, yaw = 0)
+        print("entering")
+        takeoff=1
+    except rospy.ServiceException, e:
+        print "Service takeoff call failed: %s"%e
+    
+    
+
+def globalPositionCallback(globalPositionCallback):
+    global latitude
+    global longitude
+    latitude = globalPositionCallback.latitude
+    longitude = globalPositionCallback.longitude
+    #print ("longitude: %.7f" %longitude)
+    #print ("latitude: %.7f" %latitude)
+
 class moveCopter:
     def __init__(self):
+        
         '''
         All values are initialized to zero.
         pub_set_point_local publishes the goal_point co-ordinates.
@@ -35,7 +111,7 @@ class moveCopter:
         self.targ_z=0.0
         self.rel_yaw = 0.0
 
-        rospy.init_node('navigator_node')
+        #rospy.init_node('navigator_node')
         self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=10)
         self.sub_gps=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback)
         self.sub_targ_vector=rospy.Subscriber("/target_vector",direction, self.targ_vector_callback)
@@ -62,7 +138,7 @@ class moveCopter:
 
 
 
-        print("gps_data_callback: %.2fm %.2fm %.2f deg"%(self.x_pose, self.y_pose, self.yaw*180/3.14))
+        #print("gps_data_callback: %.2fm %.2fm %.2f deg"%(self.x_pose, self.y_pose, self.yaw*180/3.14))
         
 
     def targ_vector_callback(self,msg):
@@ -123,15 +199,32 @@ class moveCopter:
       self.I = I
       return Yaw
         
-
-if __name__ == '__main__':
-  try:   
-    moveCopter()
-    rospy.spin()
-
-  except rospy.ROSInterruptException:
-    pass
         
-
+        
     
 
+if __name__ == '__main__':
+    rospy.init_node('gapter_pilot_node', anonymous=True)
+    rospy.Subscriber("/mavros/global_position/raw/fix", NavSatFix, globalPositionCallback)
+    velocity_pub = rospy.Publisher('/mavros/setpoint_velocity/cmd_vel', TwistStamped, queue_size=10)
+    # setGuidedMode()
+    # setArm()
+    # setTakeoffMode()
+    #setLandMode()
+    # spin() simply keeps python from exiting until this node is stopped
+    try:   
+        if takeoff==0:
+            setGuidedMode()
+            setArm()
+            setTakeoffMode()
+            #setLandMode()
+        else:
+            print("not entering")
+            moveCopter()
+        rospy.spin()
+
+    except rospy.ROSInterruptException:
+        pass
+    #listener()
+    #myLoop()
+    #rospy.spin()

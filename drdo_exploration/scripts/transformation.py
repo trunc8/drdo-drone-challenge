@@ -73,6 +73,7 @@ def cam_frame(data):
 	# print("--------------------------------------------------------------")
 
 if __name__ == '__main__':
+	pc_arr = None
 	rospy.init_node('world_coordinate', anonymous=True)
 	print('Node_initialised')
 	listener = tf.TransformListener()
