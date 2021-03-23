@@ -60,13 +60,14 @@ class moveCopter:
 				msgp is of PoseStamped msg type that we need to publish for going to the goal_point.
 				the use of roll, pitch, and yaw needs to be looked into.
 				''' 
+
 				self.x_pose = msg.pose.pose.position.x   
 				self.y_pose = msg.pose.pose.position.y   
 				self.z_pose = msg.pose.pose.position.z
 				rot_q =msg.pose.pose.orientation
 				self.msgp.pose.orientation=msg.pose.pose.orientation
 				(self.roll ,self.pitch ,self.yaw)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
-
+				print(self.yaw)
 
 
 				#print("gps_data_callback: %.2fm %.2fm %.2f deg"%(self.x_pose, self.y_pose, self.yaw*180/3.14))
@@ -98,16 +99,17 @@ class moveCopter:
 				if (self.flag):				
 					print("Aruco Marker detected!")
 					print("Aligning with Aruco Marker")
-					Delta = self.distance/500
+					Delta = self.distance/3000
 
 					pose_msg = PoseStamped()
-					pose_msg.pose.position.x = self.x_pose + (self.cX-320.0)*Delta   
-					pose_msg.pose.position.y = self.y_pose - (self.cY-240.0)*Delta  
+
+					pose_msg.pose.position.x = self.x_pose + (self.cX)*Delta*cos(self.yaw)+(self.cY)*Delta*sin(self.yaw)
+					pose_msg.pose.position.y = self.y_pose - (self.cY)*Delta*cos(self.yaw)+(self.cX)*Delta*sin(self.yaw)  
 					pose_msg.pose.position.z = self.z_pose
 					pose_msg.pose.orientation = self.msgp.pose.orientation
 
 					self.pub_set_point_local.publish(pose_msg)
-					if (self.distance<50):
+					if (self.distance<msg.edge_distance):
 						print("Landing")
 						self.setLandMode()
 				else:
