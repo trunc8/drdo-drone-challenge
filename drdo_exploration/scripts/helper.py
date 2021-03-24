@@ -23,7 +23,7 @@ from drdo_exploration.msg import direction
 
 
 class Helper:
-    
+  
 
   def defineParameters(self):
     ## 1/n decay
@@ -57,7 +57,7 @@ class Helper:
     
 
     self.kernel_right = np.concatenate((np.zeros(KERNEL_SIZE//2),
-                                        decay_sequence))
+                      decay_sequence))
     self.kernel_left = self.kernel_right[::-1]
 
 
@@ -71,7 +71,7 @@ class Helper:
     decay_sequence = 1 - decay_sequence
 
     self.kernel_bottom = np.concatenate((np.zeros(KERNEL_SIZE//2),
-                                        decay_sequence))
+                      decay_sequence))
     self.kernel_top = self.kernel_bottom[::-1]
 
     self.POINTCLOUD_CUTOFF = 10
@@ -180,10 +180,10 @@ class Helper:
 
     # idx = random.randint(0, len(nonzero_candidates[0])-1)
     target = np.array([nonzero_candidates[0][idx],
-                       nonzero_candidates[1][idx]])
+               nonzero_candidates[1][idx]])
 
     # print("Target Depth: ", self.POINTCLOUD_CUTOFF*cleaned_cv_img[target[0],
-                    # target[1]])
+            # target[1]])
     danger_flag = 0
     thresholded_img = 1*(penalized_cv_img > 1.*self.DANGER_DISTANCE/self.POINTCLOUD_CUTOFF)
 
@@ -195,7 +195,7 @@ class Helper:
 
   
   def calculatePenalty(self, cleaned_cv_img):
-    
+  
     # Penalty for distance
     # penalized_cv_img = penalizeObstacleProximity(cleaned_cv_img) # Using edge-extension visor
     dilated_img = self.dilateImage(cleaned_cv_img) # Using grayscale dilation
@@ -208,13 +208,13 @@ class Helper:
     z_pen = self.K_ALT*self.world_z_penalty()
 
     # Penalty for deviation from 0.8 intensity
-    dist_pen = self.K_DIST*self.distance_penalty()
+    dist_pen = self.K_DIST*self.distance_penalty(dilated_img)
 
     # Apply all
-    penalized_cv_img = dilated_img - self.K_VERT_MOVE * vert_pen 
-                                   - self.K_HORZ_MOVE * horz_pen 
-                                   - self.K_ALT * z_pen
-                                   - self.K_DIST * distance_pen
+    penalized_cv_img = (dilated_img - self.K_VERT_MOVE * vert_pen 
+                     - self.K_HORZ_MOVE * horz_pen 
+                     - self.K_ALT * z_pen
+                     - self.K_DIST * dist_pen)
 
     return penalized_cv_img
   
@@ -250,8 +250,8 @@ class Helper:
 
   
   def world_z_penalty(self):
-    #---------------------------------------------------------#
-    ## Penalize deviation of z-coordinate from self.Z_REF    
+  #---------------------------------------------------------#
+  ## Penalize deviation of z-coordinate from self.Z_REF    
 
     err = (self.curr_position[2]-self.Z_REF)/self.Z_REF
     z_penalty = np.arange(480)*np.abs(err)/480
@@ -260,7 +260,7 @@ class Helper:
 
     z_penalty = np.matlib.repmat(z_penalty,640,1).T
     return z_penalty
-    
+  
   
   def penalizeObstacleProximity(self, cleaned_cv_img):
     penalized_cv_img = cleaned_cv_img.copy()
@@ -278,7 +278,7 @@ class Helper:
     
     
     right_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(right_vertical_mask,
-          weights= self.kernel_right, mode='constant', cval=0, axis=1)
+        weights= self.kernel_right, mode='constant', cval=0, axis=1)
 
     '''
     Calculate horizontal differences only finding decreasing brightnesses
@@ -291,8 +291,8 @@ class Helper:
     # This matrix is basically blips at the pixels of left_vertical_edge
 
     left_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
-          weights= self.kernel_left, mode='constant', cval=0, axis=1)
-   
+        weights= self.kernel_left, mode='constant', cval=0, axis=1)
+     
     '''
     Calculate vertical differences only finding decreasing brightnesses
     ----------
@@ -304,7 +304,7 @@ class Helper:
     # This matrix is basically blips at the pixels of bottom_horizontal_edge
 
     bottom_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(bottom_horizontal_mask,
-          weights= self.kernel_bottom, mode='constant', cval=0, axis=1)
+        weights= self.kernel_bottom, mode='constant', cval=0, axis=1)
 
     '''
     Calculate vertical differences only finding increasing brightnesses
@@ -317,7 +317,7 @@ class Helper:
     # This matrix is basically blips at the pixels of top_horizontal_edge
 
     top_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(top_horizontal_mask,
-          weights= self.kernel_top, mode='constant', cval=0, axis=1)
+        weights= self.kernel_top, mode='constant', cval=0, axis=1)
 
 
     penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
@@ -339,7 +339,7 @@ class Helper:
   def dilateImage(self, cleaned_cv_img):
     kernel_size = (25,51) 
     img = self.pool2d(cleaned_cv_img, kernel_size, 
-                  stride=1, padding=0, pool_mode='min')
+            stride=1, padding=0, pool_mode='min')
     dilated_img = np.zeros(cleaned_cv_img.shape)
     dilated_img[12:-12, 25:-25] = img
     
@@ -356,21 +356,21 @@ class Helper:
     2D Pooling
 
     Parameters:
-        A: input 2D array
-        kernel_size: tuple, the size of the window
-        stride: int, the stride of the window
-        padding: int, implicit zero paddings on both sides of the input
-        pool_mode: string, 'max' or 'avg'
+      A: input 2D array
+      kernel_size: tuple, the size of the window
+      stride: int, the stride of the window
+      padding: int, implicit zero paddings on both sides of the input
+      pool_mode: string, 'max' or 'avg'
     '''
     # Padding
     A = np.pad(A, padding, mode='constant')
 
     # Window view of A
     output_shape = ((A.shape[0] - kernel_size[0])//stride + 1,
-                    (A.shape[1] - kernel_size[1])//stride + 1)
+            (A.shape[1] - kernel_size[1])//stride + 1)
     A_w = as_strided(A, shape = output_shape + kernel_size, 
-                        strides = (stride*A.strides[0],
-                                   stride*A.strides[1]) + A.strides)
+              strides = (stride*A.strides[0],
+                     stride*A.strides[1]) + A.strides)
     A_w = A_w.reshape(-1, *kernel_size)
 
     # Return the result of pooling
