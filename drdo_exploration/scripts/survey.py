@@ -52,10 +52,6 @@ class Survey(Helper):
 		self.init_pose = None
 		self.pc2_arr = None
 		self.listener = tf.TransformListener()
-
-		self.cone = 180.0 #130
-		self.step_size = 10.0 
-		self.no_of_points_to_check = int((self.cone/self.step_size)) + 1
 			 
 		rospy.Subscriber('/mavros/global_position/local', Odometry, self.positionCallback)
 			# dirn_topic = '/target_vector'
@@ -74,13 +70,20 @@ class Survey(Helper):
 
 		self.rate = rospy.Rate(10)
 
+		self.CONE = 180.0 #130
+		self.STEP_SIZE = 10.0 
+		self.NO_OF_POINTS_TO_CHECK = int((self.CONE/self.STEP_SIZE)) + 1
+
 		self.new_waypoint_found = bool()
 		self.target = None
 		self.intensity_at_target = None
-		self.target_array = [None]* self.no_of_points_to_check
-		self.target_intensity_array = [None]*self.no_of_points_to_check
+		self.target_array = [None]* self.NO_OF_POINTS_TO_CHECK
+		self.target_intensity_array = [None]*self.NO_OF_POINTS_TO_CHECK
 		#self.target_xyz_array = np.zeros(18)#shape 18 values
 		self.THRESHOLD_INTENSITY = 0.4 * np.ones(len(self.target_intensity_array))#tunable parameter
+		
+
+
 		self.best_intensity_index = None
 		self.best_yaw_angle = None
 		self.direction = None
@@ -113,7 +116,7 @@ class Survey(Helper):
 		cleaned_cv_img = cv_image_norm.copy()
 		cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
 		cleaned_cv_img = self.filterSkyGround(cleaned_cv_img)
-		penalized_cv_img = self.penalizeObstacleProximity(cleaned_cv_img)
+		penalized_cv_img = self.calculatePenalty(cleaned_cv_img)
 		# collision_cv_img = self.collision_avoidance(cleaned_cv_img)
 		self.target, _ = self.findTarget(penalized_cv_img, cleaned_cv_img)
 		#print("target pixel" , self.target)
@@ -152,7 +155,7 @@ class Survey(Helper):
 
 			print(final)
 			self.best_intensity_index = np.median(final)
-			self.best_yaw_angle = -1 * (self.direction) * ((self.no_of_points_to_check-1) - self.best_intensity_index) * self.step_size
+			self.best_yaw_angle = -1 * (self.direction) * ((self.NO_OF_POINTS_TO_CHECK-1) - self.best_intensity_index) * self.STEP_SIZE
 
 			return 1
 		
@@ -180,11 +183,11 @@ class Survey(Helper):
 		self.drone_move_pub.publish(yaw_command)
 		time.sleep(1)
 		print("reache init deg",initial_angle)
-		for i in range(self.no_of_points_to_check):
-			yaw_command.delta = self.step_size * direction
+		for i in range(self.NO_OF_POINTS_TO_CHECK):
+			yaw_command.delta = self.STEP_SIZE * direction
 			self.drone_move_pub.publish(yaw_command)
 			time.sleep(1)
-			print("yaw",(initial_angle+ ((i)*self.step_size)))
+			print("yaw",(initial_angle+ ((i)*self.STEP_SIZE)))
 			self.target_array[i] = self.target.copy()
 			print("target_array", self.target_array)
 			self.target_intensity_array[i] = self.intensity_at_target
@@ -197,7 +200,7 @@ class Survey(Helper):
 		if (self.survey_flag == 1 and self.indicator == 0):
 			self.indicator = 1
 			self.go_to_height(2.5)
-			self.scan_using_yaw(-1*(self.cone/2.0) , 1)
+			self.scan_using_yaw(-1*(self.CONE/2.0) , 1)
 			if not(self.find_good_waypoint()):
 				self.go_to_height(4)
 				self.scan_using_yaw(0 , -1)
