@@ -6,7 +6,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from math import sqrt
-from drone_path_planner.msg import teleopData
+from drdo_exploration.msg import teleopData
 from mavros_msgs.srv import SetMode
 from std_msgs.msg import Int16
 from cv_bridge import CvBridge, CvBridgeError

@@ -20,7 +20,7 @@ import tf
 from cv_bridge import CvBridge, CvBridgeError
 
 from drdo_exploration.msg import direction
-from drone_path_planner.msg import teleopData
+from drdo_exploration.msg import teleopData
 
 from helper import Helper
 

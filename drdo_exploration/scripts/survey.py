@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import numpy as np
-from drone_path_planner.msg import teleopData
+from drdo_exploration.msg import teleopData
 from helper import Helper
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int16

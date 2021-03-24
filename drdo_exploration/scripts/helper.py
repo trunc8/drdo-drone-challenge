@@ -93,9 +93,9 @@ class Helper:
 
     # Danger distance threshold
     self.DANGER_DISTANCE = 1 # In metres
-    self.THRESHOLD_FRACTION = 0.6 # Fraction
+    self.THRESHOLD_FRACTION = 0.9 # Fraction
 
-    self.DILATION_KERNEL = (50,150)
+    # self.DILATION_KERNEL = (50,150)
 
     # self.PROXIMITY_THRESH = 3.
 
