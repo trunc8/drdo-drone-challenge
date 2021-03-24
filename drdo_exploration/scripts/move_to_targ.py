@@ -59,7 +59,7 @@ class moveCopter:
 				self.pub_set_point_raw = rospy.Publisher('/mavros/setpoint_raw/local', PositionTarget,queue_size=1)
 
 				#### TUNABLES ######
-				self.DELTA = 0.3 # m
+				self.DELTA = 0.0 # m
 				self.Kp = 0.1
 				self.Kd = 0
 				self.Ki = 0
