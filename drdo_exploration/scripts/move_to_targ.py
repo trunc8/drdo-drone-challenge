@@ -13,6 +13,10 @@ from math import atan2, cos, sin
 from nav_msgs.msg import *
 from drdo_exploration.msg import direction #Here direction is the message containing target co-ordinates.
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
+
+
+from mavros_msgs.msg import PositionTarget
+
 from std_msgs.msg import Int16
 from drdo_exploration.msg import aruco_detect
 #from geometry_msgs import PoseStamped
@@ -51,8 +55,16 @@ class moveCopter:
 				self.t_prev = 0.0
 				self.I = 0.0
 
-				
-			
+
+				self.pub_set_point_raw = rospy.Publisher('/mavros/setpoint_raw/local', PositionTarget,queue_size=1)
+
+				#### TUNABLES ######
+				self.DELTA = 0.2 # m/s
+				self.Kp = 0.1
+				self.Kd = 0
+				self.Ki = 0
+				self.ERROR_THRESHOLD_FOR_INTEGRATOR = 0.2
+				self.WINDUP_THRESHOLD = 0.2
 
 
 		def gps_data_callback(self,msg):
@@ -82,7 +94,7 @@ class moveCopter:
 				self.targ_y=msg.vec_y
 				self.targ_z=msg.vec_z
 				self.rel_yaw = math.atan2(self.targ_y,self.targ_x)
-				# self.move_to_target()
+				self.move_to_target()
 				# self.rate.sleep()
 
 		def aruco_detect_callback(self,msg):
@@ -123,14 +135,16 @@ class moveCopter:
 				# print(self.msgp)
 				q = quaternion_from_euler(0, 0, self.yawPID())
 				# print(q)
-				delta = 1
-				delta_x = self.targ_x*np.cos(self.yaw)-self.targ_y*np.sin(self.yaw)
-				delta_y = self.targ_x*np.sin(self.yaw)+self.targ_y*np.cos(self.yaw)
-				delta_x = delta_x*delta
-				delta_y = delta_y*delta
-				self.msgp.pose.position.z=self.z_pose + self.targ_z*delta
-				self.msgp.pose.position.x=self.x_pose + delta_x
-				self.msgp.pose.position.y=self.y_pose + delta_y
+
+				# targ_x, targ_y, targ_z = 1, 0, 0
+
+				# delta_x = self.targ_x*np.cos(self.yaw)-self.targ_y*np.sin(self.yaw)
+				# delta_y = self.targ_x*np.sin(self.yaw)+self.targ_y*np.cos(self.yaw)
+				# delta_x = delta_x*delta
+				# delta_y = delta_y*delta
+				# self.msgp.pose.position.z=self.z_pose + self.targ_z*delta
+				# self.msgp.pose.position.x=self.x_pose + delta_x
+				# self.msgp.pose.position.y=self.y_pose + delta_y
 				
 				self.msgp.pose.orientation.x = q[0]
 				self.msgp.pose.orientation.y = q[1]
@@ -140,22 +154,31 @@ class moveCopter:
 				# print("Target pose")
 				# print(self.msgp.pose.position.x, self.msgp.pose.position.y, self.msgp.pose.position.z)
 
+
+				self.goStraight()
+
+		def goStraight(self):
+			raw_msg = PositionTarget()
+			raw_msg.header.stamp = rospy.Time.now()
+			raw_msg.header.frame_id = "world"
+			raw_msg.coordinate_frame = 8
+			raw_msg.type_mask = 3527
+			raw_msg.velocity.x = self.DELTA
+			raw_msg.velocity.y = 0
+			raw_msg.velocity.z = 0
+			self.pub_set_point_raw.publish(raw_msg)
+
+
 		def yawPID(self):
 		
-			Kp = 0.6
-			Kd = 0
-			Ki = 0
-			ERROR_THRESHOLD_FOR_INTEGRATOR = 0.2
-			WINDUP_THRESHOLD = 0.2
-
 			e = self.rel_yaw
 			#print(e*180/3.14)
 			dt = 1
 
-			P = Kp*e
-			if abs(e) < ERROR_THRESHOLD_FOR_INTEGRATOR and abs(self.I) < WINDUP_THRESHOLD:
-				self.I = self.I + Ki*e*(dt)
-			D = Kd*(e - self.e_prev)/(dt)
+			P = self.Kp*e
+			if abs(e) < self.ERROR_THRESHOLD_FOR_INTEGRATOR and abs(self.I) < self.WINDUP_THRESHOLD:
+				self.I = self.I + self.Ki*e*(dt)
+			D = self.Kd*(e - self.e_prev)/(dt)
 
 			Yaw = self.yaw + P + self.I + D
 
