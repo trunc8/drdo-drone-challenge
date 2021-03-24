@@ -59,7 +59,7 @@ class moveCopter:
 				self.pub_set_point_raw = rospy.Publisher('/mavros/setpoint_raw/local', PositionTarget,queue_size=1)
 
 				#### TUNABLES ######
-				self.DELTA = 0.2 # m
+				self.DELTA = 2 # m
 				self.Kp = 0.1
 				self.Kd = 0
 				self.Ki = 0
@@ -80,7 +80,7 @@ class moveCopter:
 				self.msgp.pose.orientation=msg.pose.pose.orientation
 				(self.roll ,self.pitch ,self.yaw)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
 				#print(self.yaw)
-				self.goStraight()
+				# self.goStraight()
 
 				#print("gps_data_callback: %.2fm %.2fm %.2f deg"%(self.x_pose, self.y_pose, self.yaw*180/3.14))
 				
@@ -94,7 +94,7 @@ class moveCopter:
 				self.targ_y=msg.vec_y
 				self.targ_z=msg.vec_z
 				self.rel_yaw = math.atan2(self.targ_y,self.targ_x)
-				self.move_to_target()
+				self.goStraight()
 				# self.rate.sleep()
 
 		def aruco_detect_callback(self,msg):
@@ -126,9 +126,9 @@ class moveCopter:
 						self.setLandMode()
 				else:
 					print("moveTOtarget")
-					self.move_to_target()
+					self.goStraight()
 
-		def move_to_target(self): 
+		# def move_to_target(self): 
 				'''
 				Here we find the final global co-ordinates by adding gps pose and message we figured out. 
 				'''
@@ -155,7 +155,7 @@ class moveCopter:
 				# print(self.msgp.pose.position.x, self.msgp.pose.position.y, self.msgp.pose.position.z)
 
 
-				self.goStraight()
+				# self.goStraight()
 
 		def goStraight(self):
 			raw_msg = PositionTarget()
@@ -175,7 +175,8 @@ class moveCopter:
 			#input_yaw = float(input("Enter yaw"))
 			#raw_msg.yaw = -input_yaw + 1.5708
 			raw_msg.yaw = -self.rel_yaw + 1.5708
-			raw_msg
+
+			# raw_msg.yaw = min(LOWER_CLAMP, max(raw_msg.yaw, UPPER_CLAMP))
 			raw_msg.yaw_rate = 0.0
 			#print (raw_msg)			
 			self.pub_set_point_raw.publish(raw_msg)
