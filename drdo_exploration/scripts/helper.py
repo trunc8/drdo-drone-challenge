@@ -76,8 +76,8 @@ class Helper:
     self.POINTCLOUD_CUTOFF = 10
 
     # Penalization tunables
-    self.K_vertical = 10
-    self.K_horizontal = 10
+    self.K_vertical = 0.5
+    self.K_horizontal = 0.5
 
     # Penalty references
     self.Z_REF = 2.5
