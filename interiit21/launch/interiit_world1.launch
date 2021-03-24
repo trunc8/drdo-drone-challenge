@@ -1,6 +1,6 @@
 <launch>
   <!-- We resume the logic in empty_world.launch, changing only the name of the world to be launched -->
-	<arg name="gui" default="false"/>
+	<arg name="gui" default="true"/>
 	<include file="$(find gazebo_ros)/launch/empty_world.launch">
 		<arg name="world_name" value="$(find interiit21)/worlds/interiit_world2c.world"/>
 		<!-- <arg name="world_name" value="$(find aruco_detector)/aruco_marker.world"/> -->

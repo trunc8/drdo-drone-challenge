@@ -208,13 +208,13 @@ class Helper:
     z_pen = self.K_ALT*self.world_z_penalty()
 
     # Penalty for deviation from 0.8 intensity
-    dist_pen = self.K_DIST*self.distance_penalty()
+    dist_pen = self.K_DIST*self.distance_penalty(dilated_img)
 
     # Apply all
-    penalized_cv_img = dilated_img - self.K_VERT_MOVE * vert_pen 
+    penalized_cv_img = (dilated_img - self.K_VERT_MOVE * vert_pen 
                      - self.K_HORZ_MOVE * horz_pen 
                      - self.K_ALT * z_pen
-                     - self.K_DIST * distance_pen
+                     - self.K_DIST * dist_pen)
 
     return penalized_cv_img
   
@@ -253,13 +253,13 @@ class Helper:
   #---------------------------------------------------------#
   ## Penalize deviation of z-coordinate from self.Z_REF    
 
-  err = (self.curr_position[2]-self.Z_REF)/self.Z_REF
-  z_penalty = np.arange(480)*np.abs(err)/480
-  if err>0:
-    z_penalty = z_penalty[::-1]
+    err = (self.curr_position[2]-self.Z_REF)/self.Z_REF
+    z_penalty = np.arange(480)*np.abs(err)/480
+    if err>0:
+      z_penalty = z_penalty[::-1]
 
-  z_penalty = np.matlib.repmat(z_penalty,640,1).T
-  return z_penalty
+    z_penalty = np.matlib.repmat(z_penalty,640,1).T
+    return z_penalty
   
   
   def penalizeObstacleProximity(self, cleaned_cv_img):
