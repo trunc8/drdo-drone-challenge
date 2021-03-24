@@ -59,7 +59,7 @@ class moveCopter:
 				self.pub_set_point_raw = rospy.Publisher('/mavros/setpoint_raw/local', PositionTarget,queue_size=1)
 
 				#### TUNABLES ######
-				self.DELTA = 2 # m
+				self.DELTA = 0.3 # m
 				self.Kp = 0.1
 				self.Kd = 0
 				self.Ki = 0
@@ -172,10 +172,10 @@ class moveCopter:
 			raw_msg.acceleration_or_force.x = 0
 			raw_msg.acceleration_or_force.y = 0
 			raw_msg.acceleration_or_force.z = 0
-			#input_yaw = float(input("Enter yaw"))
-			#raw_msg.yaw = -input_yaw + 1.5708
-			raw_msg.yaw = -self.rel_yaw + 1.5708
-
+			# input_yaw = float(input("Enter yaw"))
+			# raw_msg.yaw = input_yaw
+			# raw_msg.yaw = -self.rel_yaw + 1.5708
+			raw_msg.yaw = self.yawPID()*180./3.14
 			# raw_msg.yaw = min(LOWER_CLAMP, max(raw_msg.yaw, UPPER_CLAMP))
 			raw_msg.yaw_rate = 0.0
 			#print (raw_msg)			
@@ -193,7 +193,7 @@ class moveCopter:
 				self.I = self.I + self.Ki*e*(dt)
 			D = self.Kd*(e - self.e_prev)/(dt)
 
-			Yaw = self.yaw + P + self.I + D
+			Yaw = P + self.I + D
 
 			self.e_prev = e
 			return Yaw
