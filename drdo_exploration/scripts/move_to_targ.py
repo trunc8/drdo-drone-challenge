@@ -59,7 +59,7 @@ class moveCopter:
 				self.pub_set_point_raw = rospy.Publisher('/mavros/setpoint_raw/local', PositionTarget,queue_size=1)
 
 				#### TUNABLES ######
-				self.DELTA = 0.2 # m/s
+				self.DELTA = 0.2 # m
 				self.Kp = 0.1
 				self.Kd = 0
 				self.Ki = 0
@@ -79,8 +79,8 @@ class moveCopter:
 				rot_q =msg.pose.pose.orientation
 				self.msgp.pose.orientation=msg.pose.pose.orientation
 				(self.roll ,self.pitch ,self.yaw)=euler_from_quaternion([rot_q.x ,rot_q.y,rot_q.z ,rot_q.w])
-				print(self.yaw)
-
+				#print(self.yaw)
+				self.goStraight()
 
 				#print("gps_data_callback: %.2fm %.2fm %.2f deg"%(self.x_pose, self.y_pose, self.yaw*180/3.14))
 				
@@ -133,7 +133,7 @@ class moveCopter:
 				Here we find the final global co-ordinates by adding gps pose and message we figured out. 
 				'''
 				# print(self.msgp)
-				q = quaternion_from_euler(0, 0, self.yawPID())
+				#q = quaternion_from_euler(0, 0, self.yawPID())
 				# print(q)
 
 				# targ_x, targ_y, targ_z = 1, 0, 0
@@ -146,11 +146,11 @@ class moveCopter:
 				# self.msgp.pose.position.x=self.x_pose + delta_x
 				# self.msgp.pose.position.y=self.y_pose + delta_y
 				
-				self.msgp.pose.orientation.x = q[0]
-				self.msgp.pose.orientation.y = q[1]
-				self.msgp.pose.orientation.z = q[2]
-				self.msgp.pose.orientation.w = q[3]
-				self.pub_set_point_local.publish(self.msgp)
+				# self.msgp.pose.orientation.x = q[0]
+				# self.msgp.pose.orientation.y = q[1]
+				# self.msgp.pose.orientation.z = q[2]
+				# self.msgp.pose.orientation.w = q[3]
+				# self.pub_set_point_local.publish(self.msgp)
 				# print("Target pose")
 				# print(self.msgp.pose.position.x, self.msgp.pose.position.y, self.msgp.pose.position.z)
 
@@ -160,12 +160,24 @@ class moveCopter:
 		def goStraight(self):
 			raw_msg = PositionTarget()
 			raw_msg.header.stamp = rospy.Time.now()
-			raw_msg.header.frame_id = "world"
+			raw_msg.header.frame_id = ""
 			raw_msg.coordinate_frame = 8
-			raw_msg.type_mask = 3527
-			raw_msg.velocity.x = self.DELTA
+			raw_msg.type_mask = 448
+			raw_msg.position.x = self.DELTA
+			raw_msg.position.y = 0
+			raw_msg.position.z = 0
+			raw_msg.velocity.x = 0
 			raw_msg.velocity.y = 0
 			raw_msg.velocity.z = 0
+			raw_msg.acceleration_or_force.x = 0
+			raw_msg.acceleration_or_force.y = 0
+			raw_msg.acceleration_or_force.z = 0
+			#input_yaw = float(input("Enter yaw"))
+			#raw_msg.yaw = -input_yaw + 1.5708
+			raw_msg.yaw = -self.rel_yaw + 1.5708
+			raw_msg
+			raw_msg.yaw_rate = 0.0
+			#print (raw_msg)			
 			self.pub_set_point_raw.publish(raw_msg)
 
 
