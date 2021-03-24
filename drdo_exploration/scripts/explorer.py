@@ -75,23 +75,15 @@ class Exploration(Helper):
     
     cv_image_array = np.array(cv_img, dtype = np.dtype('f8'))
     cv_image_norm = cv_image_array/self.POINTCLOUD_CUTOFF
-
-    
-
+  
     cleaned_cv_img = cv_image_norm.copy()
     cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
-
-    
     cleaned_cv_img = self.filterSkyGround(cleaned_cv_img)
-
 
     penalized_cv_img = self.calculatePenalty(cleaned_cv_img)
 
     #image_operation to apply colllision avoidance with drone
-
     # collision_cv_img = self.collision_avoidance(cleaned_cv_img)
-    
-
 
     target, danger_flag = self.findTarget(penalized_cv_img, cleaned_cv_img)
 
@@ -140,13 +132,6 @@ class Exploration(Helper):
 
     self.IN_DANGER[0] = self.IN_DANGER[1]
 
-
-
-
-
-
-
- 
 
 if __name__ == '__main__':
   try:
