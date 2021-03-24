@@ -79,16 +79,20 @@ class Helper:
     # Penalization tunables
     self.K_vertical = 10
     self.K_horizontal = 10
-    self.K_cam = 1e-1
+
+    # Penalty references
     self.Z_REF = 2.5
-    self.K_altitude = 1
-    self.DILATION_FACTOR = 5
-    self.Z_PEN_FACTOR = 1e-2
-    self.Y_PEN_FACTOR = 1e-2
+    self.TARGET_DIST = 0.8 # 0-1, representing depth
+
+    # Penalty factors
+    self.K_HORZ_MOVE =  1e-1
+    self.K_VERT_MOVE =  1e-1
+    self.K_ALT = 1e-1
+    self.K_DIST = 1e-1
 
     # Danger distance threshold
-    self.DANGER_DISTANCE = 0.1
-    self.THRESHOLD_PERCENTAGE = 0.01
+    self.DANGER_DISTANCE = 2 # In metres
+    self.THRESHOLD_FRACTION = 0.1 # Fraction
 
 
   def filterSkyGround(self, cleaned_cv_img):
@@ -182,7 +186,8 @@ class Helper:
                     # target[1]])
     danger_flag = 0
     thresholded_img = 1*(penalized_cv_img > 1.*self.DANGER_DISTANCE/self.POINTCLOUD_CUTOFF)
-    if np.count_nonzero(thresholded_img) < self.THRESHOLD_PERCENTAGE*np.prod(penalized_cv_img.shape) :
+
+    if np.sum(thresholded_img) < self.THRESHOLD_FRACTION * np.prod(penalized_cv_img.shape) :
       danger_flag = 1
       print("DANGERRRRRRR")
     
@@ -191,40 +196,77 @@ class Helper:
   
   def calculatePenalty(self, cleaned_cv_img):
     
-    # Apply penalty for distance
+    # Penalty for distance
     # penalized_cv_img = penalizeObstacleProximity(cleaned_cv_img) # Using edge-extension visor
-    penalized_cv_img = self.dilateImage(cleaned_cv_img) # Using grayscale dilation
+    dilated_img = self.dilateImage(cleaned_cv_img) # Using grayscale dilation
     
-    # Apply penalty for moving away from centerline
-    # penalized_cv_img = penalized_cv_img - self.img_y_penalty()
+    # Penalty for moving away from center
+    vert_pen = self.vertical_veering_penalty()
+    horz_pen = self.horizontal_veering_penalty()
 
-    # Apply penalty for being off midlevel in world height
-    # penalized_cv_img = penalized_cv_img - self.Z_PEN_FACTOR*self.world_z_penalty()
-    
+    # Penalty for being off midlevel in world height
+    z_pen = self.K_ALT*self.world_z_penalty()
+
+    # Penalty for deviation from 0.8 intensity
+    dist_pen = self.K_DIST*self.distance_penalty()
+
+    # Apply all
+    penalized_cv_img = dilated_img - self.K_VERT_MOVE * vert_pen 
+                                   - self.K_HORZ_MOVE * horz_pen 
+                                   - self.K_ALT * z_pen
+                                   - self.K_DIST * distance_pen
+
     return penalized_cv_img
   
-  
-  def img_y_penalty(self):
+
+  def distance_penalty(self, dilated_img):
     #---------------------------------------------------------#
-    ## Penalize distance from horizontal centerline
+    ## Penalize distance from vertical centerline
+    return np.abs(dilated_img - self.TARGET_DIST)/self.TARGET_DIST
+
+  
+  def vertical_veering_penalty(self):
+    #---------------------------------------------------------#
+    ## Penalize distance from vertical centerline
 
     y_dist_penalty = np.arange(480) - 479/2.
     y_dist_penalty = np.abs(y_dist_penalty)
     y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
-    # print(y_dist_penalty.shape)
-    
-    
-    y_dist_penalty = self.K_cam*y_dist_penalty/(np.max(y_dist_penalty))
-    # penalized_cv_img = penalized_cv_img - y_dist_penalty
-    # penalized_cv_img.clip(min=0)
+
+    y_dist_penalty = y_dist_penalty/(np.max(y_dist_penalty))
     return y_dist_penalty
+  
+
+  def vertical_veering_penalty(self):
+    #---------------------------------------------------------#
+    ## Penalize distance from vertical centerline
+
+    y_dist_penalty = np.arange(480) - 479/2.
+    y_dist_penalty = np.abs(y_dist_penalty)
+    y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
+
+    y_dist_penalty = y_dist_penalty/(np.max(y_dist_penalty))
+    return y_dist_penalty
+  
+
+  def horizontal_veering_penalty(self):
+    #---------------------------------------------------------#
+    ## Penalize distance from horizontal centerline
+
+    x_dist_penalty = np.arange(640) - 319/2.
+    x_dist_penalty = np.abs(x_dist_penalty)
+    x_dist_penalty = np.matlib.repmat(x_dist_penalty, 480, 1)
+
+    x_dist_penalty = x_dist_penalty/(np.max(x_dist_penalty))
+    return x_dist_penalty
+
   
   def world_z_penalty(self):
     #---------------------------------------------------------#
     ## Penalize deviation of z-coordinate from self.Z_REF    
 
     err = (self.curr_position[2]-self.Z_REF)/self.Z_REF
-    z_penalty = self.K_altitude*np.arange(480)*np.abs(err)/480
+    z_penalty = np.arange(480)*np.abs(err)/480
     if err>0:
       z_penalty = z_penalty[::-1]
 
