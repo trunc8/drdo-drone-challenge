@@ -155,7 +155,7 @@ class moveCopter:
 				# print(self.msgp.pose.position.x, self.msgp.pose.position.y, self.msgp.pose.position.z)
 
 
-				# self.goStraight()
+				#self.goStraight()
 
 		def goStraight(self):
 			raw_msg = PositionTarget()
@@ -163,9 +163,16 @@ class moveCopter:
 			raw_msg.header.frame_id = ""
 			raw_msg.coordinate_frame = 8
 			raw_msg.type_mask = 448
-			raw_msg.position.x = self.DELTA
-			raw_msg.position.y = 0
-			raw_msg.position.z = 0
+
+			self.targ_x, self.targ_y, self.targ_z = 1, 0, 0
+			delta_x = self.targ_x*np.cos(self.yaw)-self.targ_y*np.sin(self.yaw)
+			delta_y = self.targ_x*np.sin(self.yaw)+self.targ_y*np.cos(self.yaw)
+			delta_x = delta_x*self.DELTA
+			delta_y = delta_y*self.DELTA
+			
+			raw_msg.position.x = delta_x
+			raw_msg.position.y = delta_y
+			raw_msg.position.z = self.targ_z*self.DELTA
 			raw_msg.velocity.x = 0
 			raw_msg.velocity.y = 0
 			raw_msg.velocity.z = 0
@@ -175,7 +182,7 @@ class moveCopter:
 			# input_yaw = float(input("Enter yaw"))
 			# raw_msg.yaw = input_yaw
 			# raw_msg.yaw = -self.rel_yaw + 1.5708
-			raw_msg.yaw = self.yawPID()*180./3.14
+			raw_msg.yaw = self.yawPID()
 			# raw_msg.yaw = min(LOWER_CLAMP, max(raw_msg.yaw, UPPER_CLAMP))
 			raw_msg.yaw_rate = 0.0
 			#print (raw_msg)			
