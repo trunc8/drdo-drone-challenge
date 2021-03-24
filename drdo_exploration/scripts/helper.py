@@ -237,23 +237,11 @@ class Helper:
     return y_dist_penalty
   
 
-  def vertical_veering_penalty(self):
-    #---------------------------------------------------------#
-    ## Penalize distance from vertical centerline
-
-    y_dist_penalty = np.arange(480) - 479/2.
-    y_dist_penalty = np.abs(y_dist_penalty)
-    y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
-
-    y_dist_penalty = y_dist_penalty/(np.max(y_dist_penalty))
-    return y_dist_penalty
-  
-
   def horizontal_veering_penalty(self):
     #---------------------------------------------------------#
     ## Penalize distance from horizontal centerline
 
-    x_dist_penalty = np.arange(640) - 319/2.
+    x_dist_penalty = np.arange(640) - 639/2.
     x_dist_penalty = np.abs(x_dist_penalty)
     x_dist_penalty = np.matlib.repmat(x_dist_penalty, 480, 1)
 
