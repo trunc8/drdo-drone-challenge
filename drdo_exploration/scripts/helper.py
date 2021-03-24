@@ -48,12 +48,11 @@ class Helper:
     KERNEL_SIZE = 180
     DECAY_RATE = 5
     DECAY_CUTOFF = 100
-    INTENSITY = 2
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
     decay_sequence = 1/(1+decay_sequence)
-    decay_sequence = INTENSITY*(1 - decay_sequence)
+    decay_sequence = (1 - decay_sequence)
     
 
     self.kernel_right = np.concatenate((np.zeros(KERNEL_SIZE//2),
@@ -82,17 +81,18 @@ class Helper:
 
     # Penalty references
     self.Z_REF = 2.5
-    self.TARGET_DIST = 0.8 # 0-1, representing depth
+    self.TARGET_DIST = 0.7 # 0-1, representing depth
 
     # Penalty factors
-    self.K_HORZ_MOVE =  1e-1
+    self.K_HORZ_MOVE =  0
     self.K_VERT_MOVE =  1e-1
     self.K_ALT = 1e-1
     self.K_DIST = 1e-1
 
     # Danger distance threshold
     self.DANGER_DISTANCE = 2 # In metres
-    self.THRESHOLD_FRACTION = 0.1 # Fraction
+    self.THRESHOLD_FRACTION = 0.5 # Fraction
+    self.DILATION_KERNEL = (25,79)
 
 
   def filterSkyGround(self, cleaned_cv_img):
@@ -128,8 +128,8 @@ class Helper:
     if ground_limit>=0 and ground_limit<height:
       sky_ground_mask[ground_limit:,:] = 0
 
-    temp_cv_img = cleaned_cv_img.copy()
-    cleaned_cv_img = np.multiply(temp_cv_img,sky_ground_mask)
+    # temp_cv_img = cleaned_cv_img.copy()
+    cleaned_cv_img = np.multiply(cleaned_cv_img,sky_ground_mask)
 
     # cv2.imshow("After masking image", cleaned_cv_img.astype(float))
     # cv2.waitKey(3)
@@ -200,22 +200,24 @@ class Helper:
     # penalized_cv_img = penalizeObstacleProximity(cleaned_cv_img) # Using edge-extension visor
     dilated_img = self.dilateImage(cleaned_cv_img) # Using grayscale dilation
     
+    # cv2.imshow("dilated_img", dilated_img)
+    # cv2.waitKey(1)
+
     # Penalty for moving away from center
     vert_pen = self.vertical_veering_penalty()
     horz_pen = self.horizontal_veering_penalty()
 
     # Penalty for being off midlevel in world height
-    z_pen = self.K_ALT*self.world_z_penalty()
+    z_pen = self.world_z_penalty()
 
     # Penalty for deviation from 0.8 intensity
-    dist_pen = self.K_DIST*self.distance_penalty(dilated_img)
+    dist_pen = self.distance_penalty(dilated_img)
 
     # Apply all
     penalized_cv_img = (dilated_img - self.K_VERT_MOVE * vert_pen 
                      - self.K_HORZ_MOVE * horz_pen 
                      - self.K_ALT * z_pen
                      - self.K_DIST * dist_pen)
-
     return penalized_cv_img
   
 
@@ -337,46 +339,6 @@ class Helper:
   
 
   def dilateImage(self, cleaned_cv_img):
-    kernel_size = (25,51) 
-    img = self.pool2d(cleaned_cv_img, kernel_size, 
-            stride=1, padding=0, pool_mode='min')
-    dilated_img = np.zeros(cleaned_cv_img.shape)
-    dilated_img[12:-12, 25:-25] = img
-    
-    #cv2.imshow("Cleaned image", cleaned_cv_img)
-    #cv2.imshow("Pooled image", img)
-    #cv2.imshow("dialted_img",dilated_img)
-    #cv2.waitKey(3)
+    img = scipy.ndimage.grey_dilation((1.-cleaned_cv_img), size=self.DILATION_KERNEL, mode='constant', cval=0.0)
 
-    return dilated_img
-
-  
-  def pool2d(self, A, kernel_size, stride, padding, pool_mode='min'):
-    '''
-    2D Pooling
-
-    Parameters:
-      A: input 2D array
-      kernel_size: tuple, the size of the window
-      stride: int, the stride of the window
-      padding: int, implicit zero paddings on both sides of the input
-      pool_mode: string, 'max' or 'avg'
-    '''
-    # Padding
-    A = np.pad(A, padding, mode='constant')
-
-    # Window view of A
-    output_shape = ((A.shape[0] - kernel_size[0])//stride + 1,
-            (A.shape[1] - kernel_size[1])//stride + 1)
-    A_w = as_strided(A, shape = output_shape + kernel_size, 
-              strides = (stride*A.strides[0],
-                     stride*A.strides[1]) + A.strides)
-    A_w = A_w.reshape(-1, *kernel_size)
-
-    # Return the result of pooling
-    if pool_mode == 'max':
-      return A_w.max(axis=(1,2)).reshape(output_shape)
-    elif pool_mode == 'avg':
-      return A_w.mean(axis=(1,2)).reshape(output_shape)
-    elif pool_mode == 'min':
-      return A_w.min(axis=(1,2)).reshape(output_shape)
+    return (1.-img)

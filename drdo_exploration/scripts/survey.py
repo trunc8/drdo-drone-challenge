@@ -59,7 +59,7 @@ class Survey(Helper):
 			# dirn_topic = '/target_vector'
 			# self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
 
-		rospy.Subscriber('/depth_camera/depth/image_raw', Image, self.ImageCallback)
+		rospy.Subscriber('/depth_camera/depth/image_raw', Image, self.ImageCallback, queue_size=1)
 		rospy.Subscriber("/safesearch/start", Int16, self.start_survey_callback) 
 
 		self.drone_move_pub = rospy.Publisher('/safesearch/teleop',teleopData,queue_size = 1)  
@@ -167,7 +167,7 @@ class Survey(Helper):
 		opt_height_command.decision = 4
 		opt_height_command.delta = h
 		self.drone_move_pub.publish(opt_height_command)
-		time.sleep(6)
+		time.sleep(1)
 		print("height reached" , h)
 
 	def scan_using_yaw(self, initial_angle , direction):
@@ -176,12 +176,12 @@ class Survey(Helper):
 		yaw_command.decision = 5
 		yaw_command.delta = initial_angle
 		self.drone_move_pub.publish(yaw_command)
-		time.sleep(7)
+		time.sleep(1)
 		print("reache init deg",initial_angle)
 		for i in range(19):
 			yaw_command.delta = 10 * direction
 			self.drone_move_pub.publish(yaw_command)
-			time.sleep(3)
+			time.sleep(1)
 			print("yaw",(initial_angle+ ((i)*10)))
 			self.target_array[i] = self.target.copy()
 			print("target_array", self.target_array)
@@ -211,7 +211,7 @@ class Survey(Helper):
 				final_yaw_command.decision = 5
 				final_yaw_command.delta = self.best_yaw_angle
 				self.drone_move_pub.publish(final_yaw_command)
-				time.sleep(6)
+				time.sleep(1)
 				self.indicator = 0
 				self.safesearch_complete_flag.data = 1
 				self.safesearch_complete_pub.publish(self.safesearch_complete_flag)

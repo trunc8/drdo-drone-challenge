@@ -40,7 +40,7 @@ class moveCopter:
 				self.rel_yaw = 0.0
 
 				rospy.init_node('navigator_node')
-				self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=10)
+				self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=1)
 				self.sub_gps=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback)
 				self.sub_aruco_detect = rospy.Subscriber("/aruco_detect", aruco_detect, self.aruco_detect_callback)
 				self.sub_targ_vector=rospy.Subscriber("/target_vector",direction, self.targ_vector_callback)
@@ -82,7 +82,7 @@ class moveCopter:
 				self.targ_y=msg.vec_y
 				self.targ_z=msg.vec_z
 				self.rel_yaw = math.atan2(self.targ_y,self.targ_x)
-				# self.move_to_target()
+				self.move_to_target()
 				# self.rate.sleep()
 
 		def aruco_detect_callback(self,msg):
@@ -142,7 +142,7 @@ class moveCopter:
 
 		def yawPID(self):
 		
-			Kp = 0.6
+			Kp = 0.8
 			Kd = 0
 			Ki = 0
 			ERROR_THRESHOLD_FOR_INTEGRATOR = 0.2
