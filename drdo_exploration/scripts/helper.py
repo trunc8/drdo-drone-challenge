@@ -45,15 +45,31 @@ class Helper:
     1-1/(1+(d/x)^2n)
     '''
 
-    KERNEL_SIZE = 180
-    DECAY_RATE = 5
-    DECAY_CUTOFF = 100
-    INTENSITY = 2
+    self.POINTCLOUD_CUTOFF = 10
+
+    # Penalization tunables
+    self.K_vertical = 0.5
+    self.K_horizontal = 0.1
+    self.K_cam = 1e-1
+    self.Z_REF = 2.5
+    self.K_altitude = 1
+    self.DILATION_FACTOR = 5
+    self.Z_PEN_FACTOR = 1e-2
+    self.Y_PEN_FACTOR = 1e-2
+
+    # Danger distance threshold
+    self.DANGER_DISTANCE = 0.1
+    self.THRESHOLD_PERCENTAGE = 0.01
+
+    KERNEL_SIZE = 300
+    DECAY_RATE = 25
+    DECAY_CUTOFF = 50
+    
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
     decay_sequence = 1/(1+decay_sequence)
-    decay_sequence = INTENSITY*(1 - decay_sequence)
+    decay_sequence = 1 - decay_sequence
     
 
     self.kernel_right = np.concatenate((np.zeros(KERNEL_SIZE//2),
@@ -74,21 +90,7 @@ class Helper:
                                         decay_sequence))
     self.kernel_top = self.kernel_bottom[::-1]
 
-    self.POINTCLOUD_CUTOFF = 10
-
-    # Penalization tunables
-    self.K_vertical = 10
-    self.K_horizontal = 10
-    self.K_cam = 1e-1
-    self.Z_REF = 2.5
-    self.K_altitude = 1
-    self.DILATION_FACTOR = 5
-    self.Z_PEN_FACTOR = 1e-2
-    self.Y_PEN_FACTOR = 1e-2
-
-    # Danger distance threshold
-    self.DANGER_DISTANCE = 0.1
-    self.THRESHOLD_PERCENTAGE = 0.01
+    
 
 
   def filterSkyGround(self, cleaned_cv_img):
@@ -193,10 +195,10 @@ class Helper:
     
     # Apply penalty for distance
     # penalized_cv_img = penalizeObstacleProximity(cleaned_cv_img) # Using edge-extension visor
-    penalized_cv_img = self.dilateImage(cleaned_cv_img) # Using grayscale dilation
+    penalized_cv_img = self.penalizeObstacleProximity(cleaned_cv_img) # Using grayscale dilation
     
     # Apply penalty for moving away from centerline
-    # penalized_cv_img = penalized_cv_img - self.img_y_penalty()
+    penalized_cv_img = penalized_cv_img - self.img_y_penalty()
 
     # Apply penalty for being off midlevel in world height
     # penalized_cv_img = penalized_cv_img - self.Z_PEN_FACTOR*self.world_z_penalty()
@@ -295,8 +297,8 @@ class Helper:
     penalized_cv_img[:,0] = np.zeros(480)
     penalized_cv_img[:,-1] = np.zeros(480)
 
-    penalized_cv_img[0:-1,:] = penalized_cv_img[0:-1,:] - bottom_horizontal_penalty
-    penalized_cv_img[1:,:] = penalized_cv_img[1:,:] - top_horizontal_penalty
+    # penalized_cv_img[0:-1,:] = penalized_cv_img[0:-1,:] - bottom_horizontal_penalty
+    # penalized_cv_img[1:,:] = penalized_cv_img[1:,:] - top_horizontal_penalty
     penalized_cv_img[0,:] = np.zeros(640)
     penalized_cv_img[-1,:] = np.zeros(640)
     
@@ -350,3 +352,58 @@ class Helper:
       return A_w.mean(axis=(1,2)).reshape(output_shape)
     elif pool_mode == 'min':
       return A_w.min(axis=(1,2)).reshape(output_shape)
+
+
+  def collision_avoidance(self, cleaned_cv_img ):
+
+    collision_cv_img = cleaned_cv_img.copy()
+    
+    right_vertical_edge = cleaned_cv_img[:,1:] - cleaned_cv_img[:,0:-1]
+    right_vertical_edge = right_vertical_edge.clip(min=0)
+    right_vertical_mask = (right_vertical_edge > 0.1).astype(float)
+
+
+  
+    left_vertical_edge = cleaned_cv_img[:,0:-1] - cleaned_cv_img[:,1:]
+    left_vertical_edge = left_vertical_edge.clip(min=0)
+    left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
+   
+    edges_img_right = np.zeros(collision_cv_img.shape)
+    edges_img = np.zeros(collision_cv_img.shape)
+    edges_img_left = np.zeros(collision_cv_img.shape)
+
+    edges_img_right[:,0:-1] = right_vertical_mask
+    edges_img_left[:,1:] = left_vertical_mask
+    edges_img = np.logical_or(edges_img_left,edges_img_right)
+    
+    #depth = np.logical_and(collision_cv_img,yo)
+    
+    projected_1_d_array = np.amax(edges_img , axis=0)
+    #print("projected_1d_array shape",projected_1_d_array.shape)
+    #print(projected_1_d_array)
+    col_edges = np.where(projected_1_d_array==1) #return (arr[196,509],);flatten array #np.ndarray.flatten
+    #print("col_edges[0]",col_edges[0])
+    FOCAL_LENGTH = 554.25
+    DRONE_SIZE = 0.5  #exact value 0.47
+
+    for i in col_edges[0]:  
+      print("i",i)                                    
+      row_edge = np.where(edges_img[:,i] == 1) 
+      #print("row_edge",row_edge)
+      #print("row_edge",row_edge[0])
+      print("row_edge_first",row_edge[0][0])
+      print("row_edge_last" , row_edge[0][-1])
+      #cv2.imshow("collision_cv_img",collision_cv_img)
+
+      image_plane_distance = (collision_cv_img[row_edge[0][0],i]+ 1e-1) * self.POINTCLOUD_CUTOFF
+      #image_plane_distance = depth_value
+      drone_size_projected = (DRONE_SIZE/2)*FOCAL_LENGTH/image_plane_distance
+      
+      drone_proj_left = i - drone_size_projected
+      drone_proj_right = i + drone_size_projected
+
+      print("drone_size_projected",drone_size_projected)
+
+      edges_img[ row_edge[0][0]:row_edge[0][-1] , int(drone_proj_left):int(drone_proj_right) ] = 1
+
+      collision_cv_img = np.multiply(collision_cv_img , (1-edges_img))

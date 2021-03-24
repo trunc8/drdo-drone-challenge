@@ -145,12 +145,12 @@ class moveCopter:
 			Kp = 0.6
 			Kd = 0
 			Ki = 0
-			ERROR_THRESHOLD_FOR_INTEGRATOR = 0.2
-			WINDUP_THRESHOLD = 0.2
+			ERROR_THRESHOLD_FOR_INTEGRATOR = 1
+			WINDUP_THRESHOLD = 1
 
 			e = self.rel_yaw
 			#print(e*180/3.14)
-			dt = 1
+			dt = 1 # = 1./updateRateOfPointCloud
 
 			P = Kp*e
 			if abs(e) < ERROR_THRESHOLD_FOR_INTEGRATOR and abs(self.I) < WINDUP_THRESHOLD:
