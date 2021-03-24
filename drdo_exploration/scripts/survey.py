@@ -72,7 +72,7 @@ class Survey(Helper):
 
 		self.CONE = 60.0 #130
 		self.NO_OF_POINTS_TO_CHECK = 5  #int((self.CONE/self.STEP_SIZE)) + 1
-		self.STEP_SIZE = self.cone / float(self.NO_OF_POINTS_TO_CHECK - 1) 
+		self.STEP_SIZE = self.CONE / float(self.NO_OF_POINTS_TO_CHECK - 1) 
 
 		self.new_waypoint_found = bool()
 		self.target = None
@@ -154,7 +154,11 @@ class Survey(Helper):
 							final.append(check2[i])
 
 			print(final)
-			self.best_intensity_index = np.median(final)
+			final = np.array(final).flatten()
+			if len(final) % 2 == 1:
+				self.best_intensity_index = np.median(final)
+			else:
+				self.best_intensity_index = final[int(len(final)/2)]	
 			self.best_yaw_angle = -1 * (self.direction) * ((self.NO_OF_POINTS_TO_CHECK-1) - self.best_intensity_index) * self.STEP_SIZE
 
 			return 1
@@ -165,6 +169,7 @@ class Survey(Helper):
 
 
 	def emergency(self):
+		print("NO WAYPOINT FOUND !")
 		pass
 
 	def go_to_height(self, h):
