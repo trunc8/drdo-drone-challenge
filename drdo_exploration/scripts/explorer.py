@@ -79,7 +79,9 @@ class Exploration(Helper):
   
     cleaned_cv_img = cv_image_norm.copy()
     cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
-    # cleaned_cv_img = self.filterSkyGround(cleaned_cv_img)
+    cleaned_cv_img = self.filterSkyGround(cleaned_cv_img)
+    # cleaned_cv_img = ret[0]
+    # sky_ground_mask = ret[1]
 
     # rospy.loginfo("Before calculate pen")
     penalized_cv_img = self.calculatePenalty(cleaned_cv_img)
@@ -87,8 +89,14 @@ class Exploration(Helper):
     #image_operation to apply colllision avoidance with drone
     # collision_cv_img = self.collision_avoidance(cleaned_cv_img)
 
-    target, danger_flag = self.findTarget(penalized_cv_img, cleaned_cv_img)
+    target, _ = self.findTarget(penalized_cv_img, cleaned_cv_img)
+    danger_flag = self.detectDanger(penalized_cv_img)
     # rospy.loginfo("Pose target")
+    # cv2.circle(cleaned_cv_img, (target[1],target[0]), 20, 0, -1)
+    # cv2.circle(cleaned_cv_img, (target[1],target[0]), 10, 1, -1)
+    # cv2.imshow("Cleaned image", cleaned_cv_img)
+   
+
     cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
     cv2.circle(penalized_cv_img, (target[1],target[0]), 10, 1, -1)
     cv2.imshow("Penalized image", penalized_cv_img)
@@ -117,7 +125,7 @@ class Exploration(Helper):
     # print("%.2f %.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
     
     if not self.IN_DANGER[1]:
-      # rospy.loginfo("Going")
+      rospy.loginfo("Going")
       self.dirn_pub.publish(dirn_msg)
     
     if self.IN_DANGER[0] != self.IN_DANGER[1]:
@@ -126,11 +134,11 @@ class Exploration(Helper):
       dirn_msg.vec_y = 0
       dirn_msg.vec_z = 0
       self.dirn_pub.publish(dirn_msg)
-      rospy.sleep(0.5)
-      msg = teleopData()
-      msg.decision = 1
-      msg.delta = -1
-      self.stop_pub.publish(msg)
+      # rospy.sleep(2)
+      # msg = teleopData()
+      # msg.decision = 1
+      # msg.delta = -0.5
+      # self.stop_pub.publish(msg)
 
     self.IN_DANGER[0] = self.IN_DANGER[1]
     # rospy.loginfo("END of pc-cb")

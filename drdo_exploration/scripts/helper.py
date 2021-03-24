@@ -73,6 +73,8 @@ class Helper:
                       decay_sequence))
     self.kernel_top = self.kernel_bottom[::-1]
 
+    self.sky_ground_mask = None
+
     self.POINTCLOUD_CUTOFF = 10
 
     # Penalization tunables
@@ -81,18 +83,21 @@ class Helper:
 
     # Penalty references
     self.Z_REF = 2.5
-    self.TARGET_DIST = 0.7 # 0-1, representing depth
+    self.TARGET_DIST = 0.4 # 0-1, representing depth
 
     # Penalty factors
     self.K_HORZ_MOVE =  0
     self.K_VERT_MOVE =  1e-1
     self.K_ALT = 1e-1
-    self.K_DIST = 1e-1
+    self.K_DIST = 5e-1
 
     # Danger distance threshold
-    self.DANGER_DISTANCE = 2 # In metres
-    self.THRESHOLD_FRACTION = 0.5 # Fraction
-    self.DILATION_KERNEL = (25,79)
+    self.DANGER_DISTANCE = 1 # In metres
+    self.THRESHOLD_FRACTION = 0.6 # Fraction
+
+    self.DILATION_KERNEL = (50,150)
+
+    # self.PROXIMITY_THRESH = 3.
 
 
   def filterSkyGround(self, cleaned_cv_img):
@@ -113,7 +118,7 @@ class Helper:
     # HALF_HEIGHT = (HALF_PIXELS/FOCAL_LENGTH)*IMAGE_PLANE_DISTANCE 
     
 
-    sky_ground_mask = np.ones(cleaned_cv_img.shape, dtype=bool)
+    self.sky_ground_mask = np.ones(cleaned_cv_img.shape, dtype=bool)
 
     '''
     1. For upper limit, the range is 0 to (image_H_PIXELS - (half_pixels+  rest pixels))
@@ -124,12 +129,12 @@ class Helper:
     sky_limit = int((HALF_PIXELS-(UPPER_LIMIT-self.curr_position[2])*FOCAL_LENGTH/IMAGE_PLANE_DISTANCE))
     ground_limit = int(HALF_PIXELS+((self.curr_position[2]-LOWER_LIMIT)*FOCAL_LENGTH/IMAGE_PLANE_DISTANCE))
     if sky_limit>=0 and sky_limit<height:
-      sky_ground_mask[:sky_limit,:] = 0
+      self.sky_ground_mask[:sky_limit,:] = 0
     if ground_limit>=0 and ground_limit<height:
-      sky_ground_mask[ground_limit:,:] = 0
+      self.sky_ground_mask[ground_limit:,:] = 0
 
     # temp_cv_img = cleaned_cv_img.copy()
-    cleaned_cv_img = np.multiply(cleaned_cv_img,sky_ground_mask)
+    cleaned_cv_img = np.multiply(cleaned_cv_img,self.sky_ground_mask)
 
     # cv2.imshow("After masking image", cleaned_cv_img.astype(float))
     # cv2.waitKey(3)
@@ -159,6 +164,16 @@ class Helper:
     # return mat
     return ps
 
+  def detectDanger(self, penalized_cv_img):
+    danger_flag = 0
+    # danger_left, danger_right = 0, 0
+    # threshold_img_left, threshold_img_right = np.ones()
+    thresholded_img = np.multiply((penalized_cv_img < 1.*self.DANGER_DISTANCE/self.POINTCLOUD_CUTOFF), self.sky_ground_mask)
+
+    if np.sum(thresholded_img) > self.THRESHOLD_FRACTION * np.sum(self.sky_ground_mask):
+      danger_flag = 1
+      # print("DANGERRRRRRR")
+    return danger_flag
 
   def findTarget(self, penalized_cv_img, cleaned_cv_img):
     '''
@@ -184,22 +199,23 @@ class Helper:
 
     # print("Target Depth: ", self.POINTCLOUD_CUTOFF*cleaned_cv_img[target[0],
             # target[1]])
-    danger_flag = 0
-    thresholded_img = 1*(penalized_cv_img > 1.*self.DANGER_DISTANCE/self.POINTCLOUD_CUTOFF)
-
-    if np.sum(thresholded_img) < self.THRESHOLD_FRACTION * np.prod(penalized_cv_img.shape) :
-      danger_flag = 1
-      print("DANGERRRRRRR")
     
-    return target, danger_flag
+    
+    return target, 0
 
   
   def calculatePenalty(self, cleaned_cv_img):
   
     # Penalty for distance
     # penalized_cv_img = penalizeObstacleProximity(cleaned_cv_img) # Using edge-extension visor
-    dilated_img = self.dilateImage(cleaned_cv_img) # Using grayscale dilation
+    dilated_img = self.penalizeObstacleProximity(cleaned_cv_img) # Using grayscale dilation
     
+    
+    # thresh_dilation = self.dilateImage(1.*(dilated_img < 
+    #     self.PROXIMITY_THRESH/self.POINTCLOUD_CUTOFF))
+    # thresh dilation gives points less than 3m away
+
+
     # cv2.imshow("dilated_img", dilated_img)
     # cv2.waitKey(1)
 
@@ -210,14 +226,15 @@ class Helper:
     # Penalty for being off midlevel in world height
     z_pen = self.world_z_penalty()
 
-    # Penalty for deviation from 0.8 intensity
+    # Penalty for deviation from self.TARGET_DIST intensity
     dist_pen = self.distance_penalty(dilated_img)
 
     # Apply all
-    penalized_cv_img = (dilated_img - self.K_VERT_MOVE * vert_pen 
-                     - self.K_HORZ_MOVE * horz_pen 
-                     - self.K_ALT * z_pen
-                     - self.K_DIST * dist_pen)
+    penalized_cv_img = (dilated_img 
+                        - self.K_VERT_MOVE * vert_pen 
+                        - self.K_HORZ_MOVE * horz_pen 
+                        - self.K_ALT * z_pen
+                        - self.K_DIST * dist_pen)
     return penalized_cv_img
   
 
@@ -327,10 +344,10 @@ class Helper:
     penalized_cv_img[:,0] = np.zeros(480)
     penalized_cv_img[:,-1] = np.zeros(480)
 
-    penalized_cv_img[0:-1,:] = penalized_cv_img[0:-1,:] - bottom_horizontal_penalty
-    penalized_cv_img[1:,:] = penalized_cv_img[1:,:] - top_horizontal_penalty
-    penalized_cv_img[0,:] = np.zeros(640)
-    penalized_cv_img[-1,:] = np.zeros(640)
+    # penalized_cv_img[0:-1,:] = penalized_cv_img[0:-1,:] - bottom_horizontal_penalty
+    # penalized_cv_img[1:,:] = penalized_cv_img[1:,:] - top_horizontal_penalty
+    # penalized_cv_img[0,:] = np.zeros(640)
+    # penalized_cv_img[-1,:] = np.zeros(640)
     
 
     penalized_cv_img.clip(min=0)
