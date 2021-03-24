@@ -70,9 +70,9 @@ class Survey(Helper):
 
 		self.rate = rospy.Rate(10)
 
-		self.CONE = 180.0 #130
-		self.STEP_SIZE = 10.0 
-		self.NO_OF_POINTS_TO_CHECK = int((self.CONE/self.STEP_SIZE)) + 1
+		self.CONE = 60.0 #130
+		self.NO_OF_POINTS_TO_CHECK = 5  #int((self.CONE/self.STEP_SIZE)) + 1
+		self.STEP_SIZE = self.cone / float(self.NO_OF_POINTS_TO_CHECK - 1) 
 
 		self.new_waypoint_found = bool()
 		self.target = None
