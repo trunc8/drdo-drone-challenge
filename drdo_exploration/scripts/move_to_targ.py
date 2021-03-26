@@ -50,7 +50,7 @@ class moveCopter:
 		self.pub_set_point_raw = rospy.Publisher('/mavros/setpoint_raw/local', PositionTarget,queue_size=1)
 		self.msgp_pose=PoseStamped()
 		self.msgp_raw=PositionTarget()
-		self.rate=rospy.Rate(1)
+		self.rate=rospy.Rate(4)
 
 		self.e_prev = 0.0
 		self.t_prev = 0.0
@@ -59,7 +59,7 @@ class moveCopter:
 
 
 		#### TUNABLES ######
-		self.DELTA = 0.0 # m
+		self.DELTA = 0.8 # m
 		self.Kp = 0.1
 		self.Kd = 0
 		self.Ki = 0
@@ -105,9 +105,11 @@ class moveCopter:
 				self.msgp_pose.pose.orientation = self.msgp_pose.pose.orientation
 
 				self.pub_set_point_local.publish(self.msgp_pose)
+				print("loop 1")
 				if (self.distance<self.edge_distance):
 					self.setLandMode()
 			else:
+				print("loop 2")
 				self.goStraight()
 			self.rate.sleep()
 
@@ -118,14 +120,14 @@ class moveCopter:
 		self.msgp_raw.type_mask = 448
 
 		# here yaw should be the angle b//w current heading and targ vector
-		delta_x = self.targ_x*np.cos(self.rel_yaw)-self.targ_y*np.sin(self.rel_yaw) 
-		delta_y = self.targ_x*np.sin(self.rel_yaw)+self.targ_y*np.cos(self.rel_yaw)  
-		delta_x = delta_x*self.DELTA
-		delta_y = delta_y*self.DELTA
+		# delta_x = self.targ_x*np.cos(self.rel_yaw)-self.targ_y*np.sin(self.rel_yaw) 
+		# delta_y = self.targ_x*np.sin(self.rel_yaw)+self.targ_y*np.cos(self.rel_yaw)  
+		# delta_x = delta_x
+		# delta_y = delta_y
 		
-		self.msgp_raw.position.x = delta_x
-		self.msgp_raw.position.y = delta_y
-		self.msgp_raw.position.z = self.targ_z*self.DELTA
+		self.msgp_raw.position.x = self.targ_x* self.DELTA
+		self.msgp_raw.position.y = -self.targ_y* self.DELTA
+		self.msgp_raw.position.z = self.targ_z* self.DELTA
 		self.msgp_raw.velocity.x = 0
 		self.msgp_raw.velocity.y = 0
 		self.msgp_raw.velocity.z = 0
@@ -134,12 +136,16 @@ class moveCopter:
 		self.msgp_raw.acceleration_or_force.z = 0
 		# input_yaw = float(input("Enter yaw"))
 		# raw_msg.yaw = input_yaw
-		# raw_msg.yaw = -self.rel_yaw + 1.5708
-		self.msgp_raw.yaw = self.yawPID()
+		self.msgp_raw.yaw = -self.rel_yaw
+		# self.msgp_raw.yaw = self.rel_yaw
 		# raw_msg.yaw = min(LOWER_CLAMP, max(raw_msg.yaw, UPPER_CLAMP))
 		self.msgp_raw.yaw_rate = 0.0
 		#print (raw_msg)			
 		self.pub_set_point_raw.publish(self.msgp_raw)
+		# self.targ_x =0
+		# self.targ_y =0
+		# self.targ_z =0
+		# self.rel_yaw=0
 		# control frequncy of publishing aruco for controlling speed of bot
 
 
