@@ -216,8 +216,8 @@ class Helper:
     # thresh dilation gives points less than 3m away
 
 
-    cv2.imshow("Image after dilation penalty", dilated_img)
-    cv2.waitKey(1)
+    # cv2.imshow("Image after dilation penalty", dilated_img)
+    # cv2.waitKey(1)
 
     # Penalty for moving away from center
     vert_pen = self.vertical_veering_penalty()
@@ -241,7 +241,7 @@ class Helper:
   def distance_penalty(self, dilated_img):
     #---------------------------------------------------------#
     ## Penalize distance from vertical centerline
-    cv2.imshow("Depth Deviation Penalty", (1 - np.abs(dilated_img - self.TARGET_DIST)/self.TARGET_DIST).astype(float))
+    # cv2.imshow("Depth Deviation Penalty", (1 - np.abs(dilated_img - self.TARGET_DIST)/self.TARGET_DIST).astype(float))
     return np.abs(dilated_img - self.TARGET_DIST)/self.TARGET_DIST
 
   
