@@ -55,12 +55,10 @@ class Survey(Helper):
 		self.pc2_arr = None
 		self.listener = tf.TransformListener()
 			 
-		rospy.Subscriber('/mavros/global_position/local', Odometry, self.positionCallback)
-			# dirn_topic = '/target_vector'
-			# self.pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
+		rospy.Subscriber('/mavros/global_position/local', Odometry, self.positionCallback,queue_size=1)
 
 		rospy.Subscriber('/depth_camera/depth/image_raw', Image, self.ImageCallback, queue_size=1)
-		rospy.Subscriber("/safesearch/start", Int16, self.start_survey_callback) 
+		rospy.Subscriber("/safesearch/start", Int16, self.start_survey_callback,queue_size=1) 
 
 		self.drone_move_pub = rospy.Publisher('/safesearch/teleop',teleopData,queue_size = 1)  
 		self.safesearch_complete_pub = rospy.Publisher('/safesearch/complete',Int16 ,queue_size=1)

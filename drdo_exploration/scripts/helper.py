@@ -87,9 +87,9 @@ class Helper:
 
     # Penalty factors
     self.K_HORZ_MOVE =  0
-    self.K_VERT_MOVE =  1e-1
-    self.K_ALT = 1e-1
-    self.K_DIST = 5e-1
+    self.K_VERT_MOVE =  0
+    self.K_ALT = 0
+    self.K_DIST = 0
 
     # Danger distance threshold
     self.DANGER_DISTANCE = 1 # In metres

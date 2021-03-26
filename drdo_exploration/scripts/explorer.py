@@ -38,8 +38,8 @@ class Exploration(Helper):
     pc2_img_topic = '/depth_camera/depth/image_raw'
     safesearch_stop_topic = '/safesearch/complete'
     rospy.Subscriber(pc2_img_topic, Image, self.pc2ImageCallback, queue_size=1)
-    rospy.Subscriber(pose_topic, Odometry, self.positionCallback)
-    rospy.Subscriber(safesearch_stop_topic, Int16, self.stopSearchCallback)
+    rospy.Subscriber(pose_topic, Odometry, self.positionCallback,queue_size=1)
+    rospy.Subscriber(safesearch_stop_topic, Int16, self.stopSearchCallback,queue_size=1)
     
     dirn_topic = '/target_vector'
     safesearch_start_topic = '/safesearch/start'
@@ -65,7 +65,8 @@ class Exploration(Helper):
 
 
   def pc2ImageCallback(self, pc2_img_msg):
-    # rospy.loginfo("START of pc-cb")
+    t = rospy.get_time()
+    rospy.loginfo("START of pc-cb %s"% t)
     bridge = CvBridge()
     pc2_img_msg.encoding = "32FC1"
     try:
@@ -84,9 +85,9 @@ class Exploration(Helper):
     # cleaned_cv_img = ret[0]
     # sky_ground_mask = ret[1]
 
-    # rospy.loginfo("Before calculate pen")
+    rospy.loginfo("Before calculate pen %s"% t)
     penalized_cv_img = self.calculatePenalty(cleaned_cv_img)
-    # rospy.loginfo("Post calculate pen")
+    rospy.loginfo("Post calculate pen %s"% t)
     #image_operation to apply colllision avoidance with drone
     # collision_cv_img = self.collision_avoidance(cleaned_cv_img)
 
@@ -100,7 +101,7 @@ class Exploration(Helper):
 
     cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
     cv2.circle(penalized_cv_img, (target[1],target[0]), 10, 1, -1)
-    cv2.imshow("Cascade of Penalties Image with Target", penalized_cv_img)
+    cv2.imshow("Penalized image", penalized_cv_img)
    
     cv2.waitKey(1)
 
@@ -142,7 +143,7 @@ class Exploration(Helper):
       # self.stop_pub.publish(msg)
 
     self.IN_DANGER[0] = self.IN_DANGER[1]
-    # rospy.loginfo("END of pc-cb")
+    rospy.loginfo("END of pc-cb %s" % t)
 
 
 if __name__ == '__main__':
