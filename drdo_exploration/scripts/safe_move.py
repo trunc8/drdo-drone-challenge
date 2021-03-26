@@ -8,7 +8,7 @@ from geometry_msgs.msg import Point,Twist
 from geometry_msgs.msg import PoseStamped
 from math import atan2, cos, sin
 from nav_msgs.msg import *
-from drone_path_planner.msg import teleopData
+from drdo_exploration.msg import teleopData
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from std_msgs.msg import Int16
 #from geometry_msgs import PoseStamped

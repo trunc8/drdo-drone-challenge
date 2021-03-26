@@ -60,8 +60,8 @@ class Helper:
     self.kernel_left = self.kernel_right[::-1]
 
 
-    KERNEL_SIZE = 200
-    DECAY_RATE = 10
+    KERNEL_SIZE = 180
+    DECAY_RATE = 5
     DECAY_CUTOFF = 100
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
@@ -95,7 +95,7 @@ class Helper:
     self.DANGER_DISTANCE = 1 # In metres
     self.THRESHOLD_FRACTION = 0.9 # Fraction
 
-    # self.DILATION_KERNEL = (50,150)
+    self.DILATION_KERNEL = (50,150)
 
     # self.PROXIMITY_THRESH = 3.
 
@@ -136,7 +136,7 @@ class Helper:
     # temp_cv_img = cleaned_cv_img.copy()
     cleaned_cv_img = np.multiply(cleaned_cv_img,self.sky_ground_mask)
 
-    # cv2.imshow("After masking image", cleaned_cv_img.astype(float))
+    # cv2.imshow("After sky ground filter image", cleaned_cv_img.astype(float))
     # cv2.waitKey(3)
 
     return cleaned_cv_img
@@ -216,8 +216,8 @@ class Helper:
     # thresh dilation gives points less than 3m away
 
 
-    # cv2.imshow("dilated_img", dilated_img)
-    # cv2.waitKey(1)
+    cv2.imshow("Image after dilation penalty", dilated_img)
+    cv2.waitKey(1)
 
     # Penalty for moving away from center
     vert_pen = self.vertical_veering_penalty()
@@ -241,6 +241,7 @@ class Helper:
   def distance_penalty(self, dilated_img):
     #---------------------------------------------------------#
     ## Penalize distance from vertical centerline
+    cv2.imshow("Depth Deviation Penalty", (1 - np.abs(dilated_img - self.TARGET_DIST)/self.TARGET_DIST).astype(float))
     return np.abs(dilated_img - self.TARGET_DIST)/self.TARGET_DIST
 
   
@@ -253,6 +254,7 @@ class Helper:
     y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
 
     y_dist_penalty = y_dist_penalty/(np.max(y_dist_penalty))
+    # cv2.imshow("Vertical Veering Penalty", y_dist_penalty.astype(float))
     return y_dist_penalty
   
 
@@ -265,6 +267,7 @@ class Helper:
     x_dist_penalty = np.matlib.repmat(x_dist_penalty, 480, 1)
 
     x_dist_penalty = x_dist_penalty/(np.max(x_dist_penalty))
+    # cv2.imshow("Horizontal Veering Penalty", x_dist_penalty.astype(float))
     return x_dist_penalty
 
   
@@ -278,6 +281,8 @@ class Helper:
       z_penalty = z_penalty[::-1]
 
     z_penalty = np.matlib.repmat(z_penalty,640,1).T
+
+    # cv2.imshow("Global Altitude Deviation Penalty", z_penalty.astype(float))
     return z_penalty
   
   
@@ -299,6 +304,9 @@ class Helper:
     right_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(right_vertical_mask,
         weights= self.kernel_right, mode='constant', cval=0, axis=1)
 
+    # cv2.imshow("Vertical right edge Penalty", right_vertical_penalty.astype(float))
+
+
     '''
     Calculate horizontal differences only finding decreasing brightnesses
     ----------
@@ -311,6 +319,8 @@ class Helper:
 
     left_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
         weights= self.kernel_left, mode='constant', cval=0, axis=1)
+
+    # cv2.imshow("Vertical left edge Penalty", left_vertical_penalty.astype(float))
      
     '''
     Calculate vertical differences only finding decreasing brightnesses
@@ -323,7 +333,9 @@ class Helper:
     # This matrix is basically blips at the pixels of bottom_horizontal_edge
 
     bottom_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(bottom_horizontal_mask,
-        weights= self.kernel_bottom, mode='constant', cval=0, axis=1)
+        weights= self.kernel_bottom, mode='constant', cval=0, axis=0)
+
+    # cv2.imshow("Horizontal bottom edge Penalty", bottom_horizontal_penalty.astype(float))
 
     '''
     Calculate vertical differences only finding increasing brightnesses
@@ -336,7 +348,9 @@ class Helper:
     # This matrix is basically blips at the pixels of top_horizontal_edge
 
     top_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(top_horizontal_mask,
-        weights= self.kernel_top, mode='constant', cval=0, axis=1)
+        weights= self.kernel_top, mode='constant', cval=0, axis=0)
+
+    # cv2.imshow("Horizontal top edge Penalty", top_horizontal_penalty.astype(float))
 
 
     penalized_cv_img[:,0:-1] = penalized_cv_img[:,0:-1] - right_vertical_penalty
@@ -351,6 +365,7 @@ class Helper:
     
 
     penalized_cv_img.clip(min=0)
+
 
     return penalized_cv_img
   

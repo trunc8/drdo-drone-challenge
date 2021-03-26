@@ -79,6 +79,7 @@ class Exploration(Helper):
   
     cleaned_cv_img = cv_image_norm.copy()
     cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
+    # cv2.imshow("Cleaned Image", cleaned_cv_img)
     cleaned_cv_img = self.filterSkyGround(cleaned_cv_img)
     # cleaned_cv_img = ret[0]
     # sky_ground_mask = ret[1]
@@ -94,12 +95,12 @@ class Exploration(Helper):
     # rospy.loginfo("Pose target")
     # cv2.circle(cleaned_cv_img, (target[1],target[0]), 20, 0, -1)
     # cv2.circle(cleaned_cv_img, (target[1],target[0]), 10, 1, -1)
-    # cv2.imshow("Cleaned image", cleaned_cv_img)
+    # cv2.imshow("Cleaned Image with Sky Ground filter and Target", cleaned_cv_img)
    
 
     cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
     cv2.circle(penalized_cv_img, (target[1],target[0]), 10, 1, -1)
-    cv2.imshow("Penalized image", penalized_cv_img)
+    cv2.imshow("Cascade of Penalties Image with Target", penalized_cv_img)
    
     cv2.waitKey(1)
 
