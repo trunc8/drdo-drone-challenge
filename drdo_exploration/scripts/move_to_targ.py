@@ -146,7 +146,7 @@ class moveCopter:
 
 		def yawPID(self):
 		
-			Kp = 0.35
+			Kp = 0.4
 			Kd = 0
 			Ki = 0
 			ERROR_THRESHOLD_FOR_INTEGRATOR = 0.2

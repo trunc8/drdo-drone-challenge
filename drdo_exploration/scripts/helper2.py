@@ -47,9 +47,9 @@ class Helper:
     '''
 
     ######### VERTICAL ##########
-    KERNEL_SIZE = 300
+    KERNEL_SIZE = 350
     DECAY_RATE = 35
-    DECAY_CUTOFF = 100
+    DECAY_CUTOFF = 120
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
     decay_sequence = np.power(decay_sequence, 2*DECAY_RATE)
