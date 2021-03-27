@@ -38,6 +38,8 @@ class moveCopter:
 				self.targ_y=0.0
 				self.targ_z=0.0
 				self.rel_yaw = 0.0
+				self.flag=0.0
+				self.edge_distance=0.0
 
 				rospy.init_node('navigator_node')
 				self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local', PoseStamped,queue_size=1)
@@ -82,7 +84,7 @@ class moveCopter:
 				self.targ_y=msg.vec_y
 				self.targ_z=msg.vec_z
 				self.rel_yaw = math.atan2(self.targ_y,self.targ_x)
-				self.move_to_target()
+				self.navigate()
 				# self.rate.sleep()
 
 		def aruco_detect_callback(self,msg):
@@ -94,7 +96,9 @@ class moveCopter:
 				self.cX=msg.cX
 				self.cY=msg.cY
 				self.distance=msg.distance
+				self.edge_distance=msg.edge_distance
 				#print(msg)
+		def navigate(self):
 
 				if (self.flag):				
 					print("Aruco Marker detected!")
@@ -142,7 +146,7 @@ class moveCopter:
 
 		def yawPID(self):
 		
-			Kp = 0.1
+			Kp = 0.6
 			Kd = 0
 			Ki = 0
 			ERROR_THRESHOLD_FOR_INTEGRATOR = 0.2
