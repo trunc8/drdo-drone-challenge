@@ -113,7 +113,7 @@ class moveCopter:
 					pose_msg.pose.orientation = self.msgp.pose.orientation
 
 					self.pub_set_point_local.publish(pose_msg)
-					if (self.distance<msg.edge_distance):
+					if (self.distance<self.edge_distance):
 						print("Landing")
 						self.setLandMode()
 				else:
