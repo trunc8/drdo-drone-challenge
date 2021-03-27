@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import rospy
 ##from hector_uav_msgs.msg import PoseActionGoal
 ##from geometry_msgs import PoseStamped
@@ -66,6 +67,7 @@ class navigation:
         self.msgp.pose.position.x=self.x_pose
         self.msgp.pose.position.y=self.y_pose
         self.yaw=self.yaw+self.delta*(3.14/180)
+        print("Pose:", self.x_pose, self.y_pose)
         q=quaternion_from_euler(self.roll ,self.pitch ,self.yaw)
         self.msgp.pose.orientation.x = q[0]
         self.msgp.pose.orientation.y = q[1]

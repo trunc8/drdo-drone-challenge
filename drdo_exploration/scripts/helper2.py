@@ -20,7 +20,8 @@ from cv_bridge import CvBridge, CvBridgeError
 
 from drdo_exploration.msg import direction
 
-
+##
+from scipy import signal
 
 class Helper:
   
@@ -45,8 +46,9 @@ class Helper:
     1-1/(1+(d/x)^2n)
     '''
 
-    KERNEL_SIZE = 180
-    DECAY_RATE = 5
+    ######### VERTICAL ##########
+    KERNEL_SIZE = 300
+    DECAY_RATE = 35
     DECAY_CUTOFF = 100
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
@@ -59,9 +61,14 @@ class Helper:
                       decay_sequence))
     self.kernel_left = self.kernel_right[::-1]
 
+    ##
+    self.kernel_right = self.kernel_right.reshape(1,self.kernel_right.size)
+    self.kernel_left = self.kernel_left.reshape(1,self.kernel_left.size)
 
+
+    ######## HORIZONTAL ###########
     KERNEL_SIZE = 180
-    DECAY_RATE = 5
+    DECAY_RATE = 35
     DECAY_CUTOFF = 100
     decay_sequence = 1.0+np.arange(KERNEL_SIZE//2)
     decay_sequence = DECAY_CUTOFF/decay_sequence
@@ -73,7 +80,17 @@ class Helper:
                       decay_sequence))
     self.kernel_top = self.kernel_bottom[::-1]
 
+    ##
+    self.kernel_top = self.kernel_top.reshape(self.kernel_top.size,1)
+    self.kernel_bottom = self.kernel_bottom.reshape(self.kernel_bottom.size,1)
+
+
+
     self.sky_ground_mask = None
+    self.y_dist_penalty = None
+    self.x_dist_penalty = None
+    self.vertical_veering_penalty()
+    self.horizontal_veering_penalty()
 
     self.POINTCLOUD_CUTOFF = 10
 
@@ -88,12 +105,12 @@ class Helper:
     # Penalty factors
     self.K_HORZ_MOVE =  0
     self.K_VERT_MOVE =  0
-    self.K_ALT = 0
+    self.K_ALT = 1e-3
     self.K_DIST = 0
 
     # Danger distance threshold
-    self.DANGER_DISTANCE = 1 # In metres
-    self.THRESHOLD_FRACTION = 0.9 # Fraction
+    self.DANGER_DISTANCE = 1.5 # In metres
+    self.THRESHOLD_FRACTION = 0.8 # Fraction
 
     self.DILATION_KERNEL = (50,150)
 
@@ -175,6 +192,33 @@ class Helper:
       # print("DANGERRRRRRR")
     return danger_flag
 
+  # def detectDanger(self, penalized_cv_img, cleaned_cv_img):
+  #   # cv2.imshow("img", penalized_cv_img)
+  #   # cv2.waitKey(3)
+  #   FOCAL_LENGTH = 554.25
+
+  #   p = (1*FOCAL_LENGTH)//self.DANGER_DISTANCE 
+  #   h,w = penalized_cv_img.shape
+
+  #   white = np.zeros(penalized_cv_img.shape)
+  #   white[int(h//2 - 50):int(h//2+50), int(w//2-p//2):int(w//2+p//2)]=1
+
+
+  #   danger_flag = 0
+  #   # danger_left, danger_right = 0, 0
+  #   # threshold_img_left, threshold_img_right = np.ones()
+  #   #x = 
+  #   thresholded_img = np.multiply((cleaned_cv_img < 1.*self.DANGER_DISTANCE/self.POINTCLOUD_CUTOFF), white)
+  #   #
+  #   # cv2.imshow("Thresholded Image", thresholded_img)
+
+  #   if (np.sum(thresholded_img) > (self.THRESHOLD_FRACTION * np.sum(white))):
+  #     # If thresholded_img (dangerously close objects) occupy more than threshold_fraction space
+  #     # of "white" image
+  #     danger_flag = 1
+  #     print("DANGERRRRRRR")
+  #   return danger_flag
+
   def findTarget(self, penalized_cv_img, cleaned_cv_img):
     '''
     Find (u,v) pixel coordinates that's the
@@ -208,67 +252,63 @@ class Helper:
   
     # Penalty for distance
     # penalized_cv_img = penalizeObstacleProximity(cleaned_cv_img) # Using edge-extension visor
-    dilated_img = self.penalizeObstacleProximity(cleaned_cv_img) # Using grayscale dilation
-    
+    edge_penalized_img = self.penalizeObstacleProximity(cleaned_cv_img) # Using grayscale dilation
+    # return dilated_img
     
     # thresh_dilation = self.dilateImage(1.*(dilated_img < 
     #     self.PROXIMITY_THRESH/self.POINTCLOUD_CUTOFF))
     # thresh dilation gives points less than 3m away
 
 
-    # cv2.imshow("Image after dilation penalty", dilated_img)
+    # cv2.imshow("Image after edge penalty", edge_penalized_img)
     # cv2.waitKey(1)
 
-    # Penalty for moving away from center
-    vert_pen = self.vertical_veering_penalty()
-    horz_pen = self.horizontal_veering_penalty()
 
-    # Penalty for being off midlevel in world height
+    # # Penalty for being off midlevel in world height
     z_pen = self.world_z_penalty()
 
-    # Penalty for deviation from self.TARGET_DIST intensity
-    dist_pen = self.distance_penalty(dilated_img)
+    # # Penalty for deviation from self.TARGET_DIST intensity
+    # dist_pen = self.distance_penalty(dilated_img)
 
-    # Apply all
-    penalized_cv_img = (dilated_img 
-                        - self.K_VERT_MOVE * vert_pen 
-                        - self.K_HORZ_MOVE * horz_pen 
+    # # Apply all
+    penalized_cv_img = (edge_penalized_img 
+                        # - self.K_VERT_MOVE * self.y_dist_penalty 
+                        # - self.K_HORZ_MOVE * self.x_dist_penalty
                         - self.K_ALT * z_pen
-                        - self.K_DIST * dist_pen)
+    #                     - self.K_DIST * dist_pen
+                        )
     return penalized_cv_img
   
 
-  def distance_penalty(self, dilated_img):
+  def distance_penalty(self, edge_penalized_img):
     #---------------------------------------------------------#
     ## Penalize distance from vertical centerline
-    # cv2.imshow("Depth Deviation Penalty", (1 - np.abs(dilated_img - self.TARGET_DIST)/self.TARGET_DIST).astype(float))
-    return np.abs(dilated_img - self.TARGET_DIST)/self.TARGET_DIST
+    # cv2.imshow("Depth Deviation Penalty", (1 - np.abs(edge_penalized_img - self.TARGET_DIST)/self.TARGET_DIST).astype(float))
+    return np.abs(edge_penalized_img - self.TARGET_DIST)/self.TARGET_DIST
 
   
   def vertical_veering_penalty(self):
     #---------------------------------------------------------#
     ## Penalize distance from vertical centerline
 
-    y_dist_penalty = np.arange(480) - 479/2.
-    y_dist_penalty = np.abs(y_dist_penalty)
-    y_dist_penalty = np.matlib.repmat(y_dist_penalty,640,1).T
+    self.y_dist_penalty = np.arange(480) - 479/2.
+    self.y_dist_penalty = np.abs(self.y_dist_penalty)
+    self.y_dist_penalty = np.matlib.repmat(self.y_dist_penalty,640,1).T
 
-    y_dist_penalty = y_dist_penalty/(np.max(y_dist_penalty))
-    # cv2.imshow("Vertical Veering Penalty", y_dist_penalty.astype(float))
-    return y_dist_penalty
+    self.y_dist_penalty = self.y_dist_penalty/(np.max(self.y_dist_penalty))
+    # cv2.imshow("Vertical Veering Penalty", self.y_dist_penalty.astype(float))
   
 
   def horizontal_veering_penalty(self):
     #---------------------------------------------------------#
     ## Penalize distance from horizontal centerline
 
-    x_dist_penalty = np.arange(640) - 639/2.
-    x_dist_penalty = np.abs(x_dist_penalty)
-    x_dist_penalty = np.matlib.repmat(x_dist_penalty, 480, 1)
+    self.x_dist_penalty = np.arange(640) - 639/2.
+    self.x_dist_penalty = np.abs(self.x_dist_penalty)
+    self.x_dist_penalty = np.matlib.repmat(self.x_dist_penalty, 480, 1)
 
-    x_dist_penalty = x_dist_penalty/(np.max(x_dist_penalty))
-    # cv2.imshow("Horizontal Veering Penalty", x_dist_penalty.astype(float))
-    return x_dist_penalty
+    self.x_dist_penalty = self.x_dist_penalty/(np.max(self.x_dist_penalty))
+    # cv2.imshow("Horizontal Veering Penalty", self.x_dist_penalty.astype(float))
 
   
   def world_z_penalty(self):
@@ -301,8 +341,9 @@ class Helper:
     # This matrix is basically blips at the pixels of right_vertical_edge
     
     
-    right_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(right_vertical_mask,
-        weights= self.kernel_right, mode='constant', cval=0, axis=1)
+    # right_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(right_vertical_mask,
+    #     weights= self.kernel_right, mode='constant', cval=0, axis=1)
+    right_vertical_penalty = self.K_vertical*signal.fftconvolve(right_vertical_mask,self.kernel_right,mode='same')
 
     # cv2.imshow("Vertical right edge Penalty", right_vertical_penalty.astype(float))
 
@@ -317,8 +358,9 @@ class Helper:
     left_vertical_mask = (left_vertical_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of left_vertical_edge
 
-    left_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
-        weights= self.kernel_left, mode='constant', cval=0, axis=1)
+    # left_vertical_penalty = self.K_vertical*scipy.ndimage.convolve1d(left_vertical_mask,
+    #     weights= self.kernel_left, mode='constant', cval=0, axis=1)
+    left_vertical_penalty = self.K_vertical*signal.fftconvolve(left_vertical_mask,self.kernel_left,mode='same')
 
     # cv2.imshow("Vertical left edge Penalty", left_vertical_penalty.astype(float))
      
@@ -332,8 +374,9 @@ class Helper:
     bottom_horizontal_mask = (bottom_horizontal_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of bottom_horizontal_edge
 
-    bottom_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(bottom_horizontal_mask,
-        weights= self.kernel_bottom, mode='constant', cval=0, axis=0)
+    # bottom_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(bottom_horizontal_mask,
+    #     weights= self.kernel_bottom, mode='constant', cval=0, axis=0)
+    bottom_horizontal_penalty = self.K_horizontal*signal.fftconvolve(bottom_horizontal_mask,self.kernel_bottom,mode='same')
 
     # cv2.imshow("Horizontal bottom edge Penalty", bottom_horizontal_penalty.astype(float))
 
@@ -347,8 +390,9 @@ class Helper:
     top_horizontal_mask = (top_horizontal_edge > 0.1).astype(float)
     # This matrix is basically blips at the pixels of top_horizontal_edge
 
-    top_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(top_horizontal_mask,
-        weights= self.kernel_top, mode='constant', cval=0, axis=0)
+    # top_horizontal_penalty = self.K_horizontal*scipy.ndimage.convolve1d(top_horizontal_mask,
+    #     weights= self.kernel_top, mode='constant', cval=0, axis=0)
+    top_horizontal_penalty = self.K_horizontal*signal.fftconvolve(top_horizontal_mask,self.kernel_top,mode='same')
 
     # cv2.imshow("Horizontal top edge Penalty", top_horizontal_penalty.astype(float))
 
@@ -358,10 +402,10 @@ class Helper:
     penalized_cv_img[:,0] = np.zeros(480)
     penalized_cv_img[:,-1] = np.zeros(480)
 
-    # penalized_cv_img[0:-1,:] = penalized_cv_img[0:-1,:] - bottom_horizontal_penalty
-    # penalized_cv_img[1:,:] = penalized_cv_img[1:,:] - top_horizontal_penalty
-    # penalized_cv_img[0,:] = np.zeros(640)
-    # penalized_cv_img[-1,:] = np.zeros(640)
+    penalized_cv_img[0:-1,:] = penalized_cv_img[0:-1,:] - bottom_horizontal_penalty
+    penalized_cv_img[1:,:] = penalized_cv_img[1:,:] - top_horizontal_penalty
+    penalized_cv_img[0,:] = np.zeros(640)
+    penalized_cv_img[-1,:] = np.zeros(640)
     
 
     penalized_cv_img.clip(min=0)

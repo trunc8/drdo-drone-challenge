@@ -2,7 +2,7 @@
 import rospy
 import numpy as np
 from drdo_exploration.msg import teleopData
-from helper import Helper
+from helper2 import Helper
 from sensor_msgs.msg import Image
 from std_msgs.msg import Int16
 import time
