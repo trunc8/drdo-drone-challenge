@@ -1,10 +1,10 @@
 <launch>
 
   <node pkg="drdo_exploration" type="explorer.py" name="explorer_node" output="screen"/>
-	<node pkg="drdo_exploration" type="move_to_targ.py" name="navigator_node"/>
+  <node pkg="drdo_exploration" type="move_to_targ.py" name="navigator_node"/>
   <node pkg="drdo_exploration" type="scanner.py" name="aruco_lander"/>
 
-  <node pkg="drdo_exploration" type="safe_move.py" name="safety_searcher"/>
+  <node pkg="drdo_exploration" type="safe_move.py" name="safety_searcher" output="screen"/>
   <node pkg="drdo_exploration" type="survey.py" name="survey" output="screen"/>
 
 </launch>

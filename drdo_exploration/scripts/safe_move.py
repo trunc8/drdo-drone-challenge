@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import rospy
 ##from hector_uav_msgs.msg import PoseActionGoal
 ##from geometry_msgs import PoseStamped
@@ -8,7 +9,7 @@ from geometry_msgs.msg import Point,Twist
 from geometry_msgs.msg import PoseStamped
 from math import atan2, cos, sin
 from nav_msgs.msg import *
-from drone_path_planner.msg import teleopData
+from drdo_exploration.msg import teleopData
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from std_msgs.msg import Int16
 #from geometry_msgs import PoseStamped
@@ -28,10 +29,10 @@ class navigation:
         self.decision=0
         self.indicator=0.0
         self.safesearch_flag=0.0
-        self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local',PoseStamped,queue_size=10)
-        self.sub1=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback)
-        self.sub_safesaerch_start=rospy.Subscriber("/safesearch/start",Int16,self.safesearch_start_callback)
-        self.subl2=rospy.Subscriber("/safesearch/teleop",teleopData,self.decision_calback)
+        self.pub_set_point_local=rospy.Publisher('/mavros/setpoint_position/local',PoseStamped,queue_size=1)
+        self.sub1=rospy.Subscriber("/mavros/global_position/local",Odometry, self.gps_data_callback,queue_size=1)
+        self.sub_safesaerch_start=rospy.Subscriber("/safesearch/start",Int16,self.safesearch_start_callback,queue_size=1)
+        self.subl2=rospy.Subscriber("/safesearch/teleop",teleopData,self.decision_calback,queue_size=1)
         self.msgp=PoseStamped()
 
 
@@ -66,6 +67,7 @@ class navigation:
         self.msgp.pose.position.x=self.x_pose
         self.msgp.pose.position.y=self.y_pose
         self.yaw=self.yaw+self.delta*(3.14/180)
+        print("Pose:", self.x_pose, self.y_pose)
         q=quaternion_from_euler(self.roll ,self.pitch ,self.yaw)
         self.msgp.pose.orientation.x = q[0]
         self.msgp.pose.orientation.y = q[1]

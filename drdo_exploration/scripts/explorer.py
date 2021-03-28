@@ -20,9 +20,9 @@ import tf
 from cv_bridge import CvBridge, CvBridgeError
 
 from drdo_exploration.msg import direction
-from drone_path_planner.msg import teleopData
+from drdo_exploration.msg import teleopData
 
-from helper import Helper
+from helper2 import Helper
 
 
 class Exploration(Helper):
@@ -37,13 +37,13 @@ class Exploration(Helper):
     pose_topic = '/mavros/global_position/local'
     pc2_img_topic = '/depth_camera/depth/image_raw'
     safesearch_stop_topic = '/safesearch/complete'
-    rospy.Subscriber(pc2_img_topic, Image, self.pc2ImageCallback)
-    rospy.Subscriber(pose_topic, Odometry, self.positionCallback)
-    rospy.Subscriber(safesearch_stop_topic, Int16, self.stopSearchCallback)
+    rospy.Subscriber(pc2_img_topic, Image, self.pc2ImageCallback, queue_size=1)
+    rospy.Subscriber(pose_topic, Odometry, self.positionCallback,queue_size=1)
+    rospy.Subscriber(safesearch_stop_topic, Int16, self.stopSearchCallback,queue_size=1)
     
     dirn_topic = '/target_vector'
     safesearch_start_topic = '/safesearch/start'
-    self.dirn_pub = rospy.Publisher(dirn_topic, direction, queue_size=10)
+    self.dirn_pub = rospy.Publisher(dirn_topic, direction, queue_size=1)
     self.safesearch_pub = rospy.Publisher(safesearch_start_topic, Int16, queue_size=1)
     self.stop_pub = rospy.Publisher('/drone/teleop', teleopData, queue_size=1)
 
@@ -65,6 +65,8 @@ class Exploration(Helper):
 
 
   def pc2ImageCallback(self, pc2_img_msg):
+    # t = rospy.get_time()
+    # rospy.loginfo("START of pc-cb %s"% t)
     bridge = CvBridge()
     pc2_img_msg.encoding = "32FC1"
     try:
@@ -74,24 +76,34 @@ class Exploration(Helper):
       return
     
     cv_image_array = np.array(cv_img, dtype = np.dtype('f8'))
-    cv_image_norm = cv_image_array/self.POINTCLOUD_CUTOFF
+    cleaned_cv_img = cv_image_array/self.POINTCLOUD_CUTOFF
   
-    cleaned_cv_img = cv_image_norm.copy()
     cleaned_cv_img[np.isnan(cleaned_cv_img)] = 1.0
+    # cv2.imshow("Cleaned Image", cleaned_cv_img)
     cleaned_cv_img = self.filterSkyGround(cleaned_cv_img)
+    # cleaned_cv_img = ret[0]
+    # sky_ground_mask = ret[1]
 
+    # rospy.loginfo("Before calculate pen %s"% t)
     penalized_cv_img = self.calculatePenalty(cleaned_cv_img)
-
+    # rospy.loginfo("Post calculate pen %s"% t)
     #image_operation to apply colllision avoidance with drone
     # collision_cv_img = self.collision_avoidance(cleaned_cv_img)
 
-    target, danger_flag = self.findTarget(penalized_cv_img, cleaned_cv_img)
+    target, _ = self.findTarget(penalized_cv_img, cleaned_cv_img)
+    danger_flag = self.detectDanger(penalized_cv_img)
+    # danger_flag = self.detectDanger(penalized_cv_img, cleaned_cv_img)
+    # rospy.loginfo("Pose target")
+    # cv2.circle(cleaned_cv_img, (target[1],target[0]), 20, 0, -1)
+    # cv2.circle(cleaned_cv_img, (target[1],target[0]), 10, 1, -1)
+    # cv2.imshow("Cleaned Image with Sky Ground filter and Target", cleaned_cv_img)
+   
 
     cv2.circle(penalized_cv_img, (target[1],target[0]), 20, 0, -1)
     cv2.circle(penalized_cv_img, (target[1],target[0]), 10, 1, -1)
     cv2.imshow("Penalized image", penalized_cv_img)
    
-    cv2.waitKey(3)
+    cv2.waitKey(1)
 
     safesearch_msg = Int16()
     if self.IN_DANGER[1] or danger_flag:
@@ -112,25 +124,26 @@ class Exploration(Helper):
     dirn_msg.vec_y = dirn[1]
     dirn_msg.vec_z = dirn[2]
     
-    print("%.2f %.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
+    # print("%.2f %.2f %.2f"%(dirn[0], dirn[1], dirn[2]))
     
     if not self.IN_DANGER[1]:
-      print("Going")
+      rospy.loginfo("Going")
       self.dirn_pub.publish(dirn_msg)
     
     if self.IN_DANGER[0] != self.IN_DANGER[1]:
-      print("Switching")
+      rospy.loginfo("Switching")
       dirn_msg.vec_x = 0
       dirn_msg.vec_y = 0
       dirn_msg.vec_z = 0
       self.dirn_pub.publish(dirn_msg)
-      rospy.sleep(0.5)
-      msg = teleopData()
-      msg.decision = 1
-      msg.delta = -1
-      self.stop_pub.publish(msg)
+      # rospy.sleep(2)
+      # msg = teleopData()
+      # msg.decision = 1
+      # msg.delta = -0.5
+      # self.stop_pub.publish(msg)
 
     self.IN_DANGER[0] = self.IN_DANGER[1]
+    # rospy.loginfo("END of pc-cb %s" % t)
 
 
 if __name__ == '__main__':

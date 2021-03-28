@@ -54,6 +54,7 @@ add_message_files(
   frame.msg
   direction.msg
   aruco_detect.msg
+  teleopData.msg
 )
 
 ## Generate services in the 'srv' folder
