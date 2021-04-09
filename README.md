@@ -1,68 +1,38 @@
 # drdo-drone-challenge
 Team:Bombay76
 
-```
-cd ~/catkin_ws/src/
-git clone https://github.com/trunc8/drdo-drone-challenge.git (https)
-OR
-git clone git@github.com:trunc8/drdo-drone-challenge.git (ssh)
-```
+## Problem Statement
 
-## Installation steps for Ardupilot
-### Installing Ardupilot and MAVProxy
+The task is to design an autonomous drone that navigates in a complex static environment by avoiding any collision with the on-field obstacles and reaching the target destination after its correct detection.
 
-In home directory (both git clone and update will take time):
-```
-cd ~/
-sudo apt install git
-git clone https://github.com/ArduPilot/ardupilot.git
-cd ardupilot
-git checkout Copter-3.6
-git submodule update --init --recursive
-```
-
-```
-sudo apt-get update -y
-sudo apt-get install -y ros-melodic-mavros geographiclib-tools python-matplotlib python-serial python-wxgtk3.0 python-wxtools python-lxml python-scipy python-opencv ccache gawk python-pip python-pexpect
-sudo geographiclib-get-geoids egm96-5
-sudo pip install future pymavlink MAVProxy
-```
-
-### Install Gazebo plugin for APM (ArduPilot Master) :
-```
-cd ~
-git clone https://github.com/khancyr/ardupilot_gazebo.git
-cd ardupilot_gazebo
-git checkout dev
-```
-
-build and install plugin
-```
-mkdir build
-cd build
-cmake ..
-make -j4
-sudo make install
-```
-
-Add to .bashrc or .zshrc and reload  
-(This step is V.IMPORTANT to ensure that gazebo finds the models and your terminal finds the sim_vehicle.py script)
-```
-export PATH=$PATH:$HOME/ardupilot/Tools/autotest:/usr/lib/ccache
-export GAZEBO_RESOURCE_PATH=${GAZEBO_RESOURCE_PATH}:$HOME/ardupilot_gazebo/worlds
-export GAZEBO_MODEL_PATH=${GAZEBO_MODEL_PATH}:$HOME/ardupilot_gazebo/models
-export GAZEBO_MODEL_PATH=${GAZEBO_MODEL_PATH}:$HOME/catkin_ws/src/drdo-drone-challenge/interiit21/models
-```
+- Design an algorithm that autonomously navigates a drone from point A to point B avoiding collisions with the obstacles present in the path.
+- The local coordinates of Point A would be known before-hand and the drone has to detect and navigate up to Point B ( that would be an Aruco Marker).
+- The task is considered to be completed if the drone lands on Point B(Aruco Marker) without any crash. The ROS package must publish the ID of the Aruco marker and string “Landed” after landing on to topic “/aruco/message”
+    - When not detected : “Marker ID : none, looking for marker”
+    - When detected and landed : “ Marker ID : 0, Landed”
+- Some parts of the Aruco marker must be visible to the RGB camera upon landing.
+- Multiple Aruco Markers (false) may or may not be provided. The drone has to correctly identify the Aruco Marker based on the ID provided before landing. Correct Aruco ID will be ‘0’ in all the world.
+- The drone model will be provided with a forward-facing depth camera and downward-facing RGB camera only (Any other sensors cannot be used).
+- The flight should be strictly restricted to a height of 5m only.
 
 
-### Test installation
-In one Terminal (Terminal 1), run Gazebo:
-```
-gazebo --verbose ~/ardupilot_gazebo/worlds/iris_arducopter_runway.world
-```
 
-In another Terminal (Terminal 2), run SITL:
-```
-cd ~/ardupilot/ArduCopter/
-sim_vehicle.py -v ArduCopter -f gazebo-iris --console
-```
+## Steps to Run Locally
+1. Follow all the [installation](installation/) steps
+1. `cd ~/catkin_ws/src/`
+1. `git clone https://github.com/Tech-Meet-Solutions/drdo-drone-challenge.git (https)`  
+   OR  
+   `git clone git@github.com:Tech-Meet-Solutions/drdo-drone-challenge.git (ssh)`
+1. `catkin_make` OR `catkin build`
+1. `cd drdo-drone-challenge/drdo_exploration`
+1. `./start_sim.sh`
+
+## Team
+- Siddharth Saha- [trunc8](https://github.com/trunc8)
+- Shubham Agrawal- [shubhamagr281999](https://github.com/shubhamagr281999)
+- Pavan Kale- [pavanIITB](https://github.com/pavanIITB)
+- Tejal Ashwini Barnwal- [tejalbarnwal](https://github.com/tejalbarnwal)
+- Apoorva- [therealapoorva](https://github.com/therealapoorva)
+- Shubham Gupta- [ShubhamGupta15](https://github.com/ShubhamGupta15)
+- Ridayesh- [ridayesh](https://github.com/ridayesh)
+
